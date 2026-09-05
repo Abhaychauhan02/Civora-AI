@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Environment variables
+.env
+.env.local
+
+# IDE and OS files
+.DS_Store
+.vscode/
+.idea/
+
+# Large Datasets and raw files
+datasets/civic_detection_raw/
+temp_uploads/
+uploads/
+
+# Large training run checkpoints
+runs/detect/**/train_batch*.jpg
+runs/detect/**/val_batch*.jpg
+*.pt
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.npm/
+
+# Logs
+*.log
