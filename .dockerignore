@@ -1,0 +1,34 @@
+# Ignore virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Ignore byte-compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Ignore large datasets and raw downloads
+datasets/
+datasets/civic_detection_raw/
+
+# Ignore training artifacts
+runs/
+*.pt
+
+# Large temporary folders
+temp_uploads/
+uploads/
+
+# Development & Notebooks
+notebooks/
+tests/
+.git/
+.gitignore
+.env
+.env.local
+.DS_Store
+.vscode/
+.idea/

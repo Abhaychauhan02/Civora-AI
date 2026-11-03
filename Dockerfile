@@ -21,8 +21,9 @@ COPY . .
 # Ensure storage directories exist
 RUN mkdir -p uploads/reports uploads/resolutions temp_uploads
 
-# Default port
-EXPOSE 8000 8001
+# Default port for Render and local
+ENV PORT=10000
+EXPOSE 10000 8000
 
 # Run central backend server
-CMD ["python", "backend/main.py"]
+CMD ["python", "main.py"]
