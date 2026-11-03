@@ -10,12 +10,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy root requirements if building from root, or local requirements if building from backend
-COPY requirements.txt* ./
-RUN if [ -f "requirements.txt" ]; then pip install --no-cache-dir -r requirements.txt; fi
+# Copy and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy application files
 COPY . .
 
+# Link /app to /app/backend so 'from backend.app' imports work seamlessly
+RUN ln -sf /app /app/backend
+
+# Ensure storage directories exist
 RUN mkdir -p uploads/reports uploads/resolutions temp_uploads
 
 ENV PORT=10000

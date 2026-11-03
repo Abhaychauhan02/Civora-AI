@@ -3,10 +3,12 @@ import os
 import sys
 from pathlib import Path
 
-# Ensure project root is always in sys.path so 'backend' and 'src' modules resolve cleanly
+# Ensure project root and app directory are always in sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+APP_DIR = Path(__file__).resolve().parent
+for p in [str(ROOT_DIR), str(APP_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -100,10 +102,12 @@ def health():
 
 # Mount Frontend Progressive Web Application at root
 frontend_dir = os.path.join(ROOT_DIR, "frontend")
+if not os.path.exists(frontend_dir):
+    frontend_dir = os.path.join(APP_DIR, "frontend")
 if os.path.exists(frontend_dir):
     app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host=HOST, port=PORT, reload=True)
+    uvicorn.run(app, host=HOST, port=PORT)

@@ -1,0 +1,75 @@
+/* Custom styles for Civora Platform */
+
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Map Containers */
+#report-map, #admin-map {
+  width: 100%;
+  height: 100%;
+  min-height: 250px;
+  border-radius: 0.75rem;
+  z-index: 10;
+}
+
+/* Image preview with bounding boxes */
+.bbox-container {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.bbox-box {
+  position: absolute;
+  border: 2px solid #ef4444;
+  background-color: rgba(239, 68, 68, 0.2);
+  pointer-events: none;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.bbox-label {
+  position: absolute;
+  top: -22px;
+  left: 0;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Pulse badge */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.03); }
+}
+
+.pulse-badge {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}

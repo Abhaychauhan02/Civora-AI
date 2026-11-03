@@ -1,0 +1,21 @@
+{
+  "name": "Civora - AI Civic Infrastructure Management",
+  "short_name": "Civora",
+  "description": "Report and resolve civic issues with AI Computer Vision and smart prioritization.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#2563EB",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1577495508048-b635879837f1?w=192&auto=format&fit=crop&q=80",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1577495508048-b635879837f1?w=512&auto=format&fit=crop&q=80",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

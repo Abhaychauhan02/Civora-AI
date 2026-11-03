@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Civora — AI Civic Issue Management Platform</title>
+  <meta name="description" content="AI-Powered Civic Issue Detection, Smart Prioritization & Resolution Management">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563EB">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Leaflet CSS & JS for OpenStreetMap -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="h-full flex flex-col text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand & Status -->
+      <div class="flex items-center gap-3 cursor-pointer" onclick="App.switchTab('report')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md">
+          C
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-lg tracking-tight text-slate-900">CIVORA</span>
+            <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              AI Core Active
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-500 font-medium hidden sm:block">Civic Issue Detection & Resolution Platform</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center gap-1 sm:gap-2">
+        <button id="nav-report" data-tab="report" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-600">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          <span class="hidden sm:inline">Report Issue</span>
+          <span class="sm:hidden">Report</span>
+        </button>
+
+        <button id="nav-my-reports" data-tab="my-reports" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+          <span class="hidden sm:inline">My Submissions</span>
+          <span class="sm:hidden">Tracking</span>
+        </button>
+
+        <button id="nav-admin" data-tab="admin" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+          <span>Admin Portal</span>
+        </button>
+
+        <button id="nav-about" data-tab="about" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <span class="hidden md:inline">SDGs & Architecture</span>
+        </button>
+      </nav>
+
+      <!-- Auth Action Button -->
+      <div id="auth-btn">
+        <!-- Injected via auth.js -->
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- ============================================================= -->
+    <!-- PANEL 1: CITIZEN REPORTING FLOW -->
+    <!-- ============================================================= -->
+    <section id="panel-report" class="space-y-6">
+      
+      <!-- Banner / Subheading -->
+      <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-sm">
+        <div class="max-w-2xl">
+          <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold tracking-wide uppercase text-blue-200 mb-3">
+            Mobile-First Public Reporting
+          </span>
+          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Report Infrastructure Issues in Seconds</h1>
+          <p class="mt-2 text-sm text-blue-100 leading-relaxed">
+            Upload a photo of a pothole, overflow of garbage, or damaged streetlight. Our fine-tuned YOLOv8 Computer Vision model instantly screens authenticity, classifies the issue, and alerts the maintenance department.
+          </p>
+        </div>
+      </div>
+
+      <!-- Report Form Grid -->
+      <form id="report-form" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Photo & AI Verification -->
+        <div class="lg:col-span-6 space-y-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <h2 class="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              Step 1: Capture or Upload Issue Photo
+            </h2>
+            <p class="text-xs text-slate-500 mb-4">Supported issues: Potholes, Garbage Accumulation, Damaged Streetlights.</p>
+
+            <!-- Upload Area -->
+            <div id="image-drop-zone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-50/50">
+              
+              <div id="upload-prompt" class="space-y-3">
+                <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 mx-auto flex items-center justify-center">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+                <div>
+                  <label for="image-file-input" class="cursor-pointer text-sm font-semibold text-blue-600 hover:text-blue-700">
+                    Click to select or take photo
+                  </label>
+                  <p class="text-xs text-slate-400 mt-1">PNG, JPG, WebP up to 15MB</p>
+                </div>
+                <input id="image-file-input" type="file" accept="image/*" capture="environment" class="hidden">
+              </div>
+
+              <!-- Preview State -->
+              <div id="preview-container" class="hidden relative">
+                <img id="report-img-preview" src="#" alt="Preview" class="w-full h-64 object-cover rounded-lg border border-slate-200">
+                <button type="button" id="remove-img-btn" class="absolute top-2 right-2 bg-black/70 hover:bg-black text-white p-1.5 rounded-full text-xs transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+            </div>
+
+            <!-- AI Live Feedback Card (Appears after submission / test) -->
+            <div id="ai-preview-card" class="hidden mt-4 p-4 bg-slate-900 text-white rounded-xl space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono text-blue-400 uppercase tracking-wide font-bold">AI Vision Diagnostics</span>
+                <span id="ai-res-auth" class="text-xs font-semibold px-2 py-0.5 rounded-full"></span>
+              </div>
+              <div class="grid grid-cols-3 gap-2 text-center pt-2 border-t border-slate-800">
+                <div>
+                  <div class="text-[10px] text-slate-400">CATEGORY</div>
+                  <div id="ai-res-category" class="text-sm font-extrabold text-blue-300 mt-0.5">-</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-slate-400">CONFIDENCE</div>
+                  <div id="ai-res-confidence" class="text-sm font-extrabold text-emerald-400 mt-0.5">-</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-slate-400">SEVERITY</div>
+                  <div id="ai-res-severity" class="text-sm font-extrabold text-amber-400 mt-0.5">-</div>
+                </div>
+              </div>
+              <div id="ai-res-linked" class="hidden text-xs text-amber-300 bg-amber-950/60 p-2 rounded border border-amber-800/80">
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Description and Remarks -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Optional Notes / Remarks</label>
+            <textarea id="report-desc" rows="2" placeholder="e.g., Near library entrance, hazardous at night..." class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+          </div>
+        </div>
+
+        <!-- Right Column: Location Map & Submit -->
+        <div class="lg:col-span-6 space-y-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col h-full">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  Step 2: Pinpoint Geolocation
+                </h2>
+                <p class="text-xs text-slate-500">Drag map pin to refine location if needed.</p>
+              </div>
+              <button type="button" id="locate-me-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Auto-Detect GPS
+              </button>
+            </div>
+
+            <!-- Leaflet Map Container -->
+            <div class="relative flex-1 min-h-[260px] rounded-xl overflow-hidden border border-slate-200">
+              <div id="report-map"></div>
+            </div>
+
+            <!-- GPS Details & Address -->
+            <div class="mt-4 space-y-3">
+              <div class="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                <span class="text-slate-500 font-medium">Selected Coordinates:</span>
+                <span id="selected-coords" class="font-mono font-semibold text-slate-800">28.61390, 77.20900</span>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Landmark / Street Address</label>
+                <input id="report-address" type="text" placeholder="e.g., Block B, Academic Area or Sector 12" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <button type="submit" id="submit-report-btn" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Submit Report with AI Validation
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+      </form>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- PANEL 2: MY SUBMISSIONS & TRACKING -->
+    <!-- ============================================================= -->
+    <section id="panel-my-reports" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-extrabold text-slate-900">My Submitted Reports</h2>
+          <p class="text-xs text-slate-500 mt-1">Track verification, maintenance progress, and authority resolution evidence.</p>
+        </div>
+        <button onclick="Citizen.loadMyReports()" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs">
+          Refresh List
+        </button>
+      </div>
+
+      <div id="my-reports-list" class="space-y-4">
+        <!-- Injected via citizen.js -->
+      </div>
+
+      <div id="my-reports-empty" class="hidden text-center py-12 bg-white rounded-2xl border border-slate-200 p-8">
+        <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400 mb-3">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+        </div>
+        <h3 class="text-sm font-bold text-slate-800">No Reports Yet</h3>
+        <p class="text-xs text-slate-500 mt-1 mb-4">When you submit an issue, its status and resolution proof will appear here.</p>
+        <button onclick="App.switchTab('report')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg">Submit Your First Report</button>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- PANEL 3: ADMIN & AUTHORITY TRIAGE PORTAL -->
+    <!-- ============================================================= -->
+    <section id="panel-admin" class="hidden space-y-6">
+      
+      <!-- Auth Warning if not signed in as Admin -->
+      <div id="admin-auth-warning" class="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center max-w-lg mx-auto">
+        <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 mx-auto flex items-center justify-center mb-3">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+        </div>
+        <h3 class="text-base font-bold text-amber-900">Administrator Access Required</h3>
+        <p class="text-xs text-amber-700 mt-1 mb-4">You must sign in with an authority or facility admin account to view metrics, assign workers, and resolve issues.</p>
+        <button onclick="Auth.openModal('login')" class="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl shadow-xs">
+          Sign In as Admin
+        </button>
+        <div class="mt-4 text-[11px] text-amber-600">
+          Demo Admin Credentials: <span class="font-mono font-bold">admin@civora.org</span> / <span class="font-mono font-bold">admin123</span>
+        </div>
+      </div>
+
+      <!-- Admin Content (Visible when authenticated) -->
+      <div id="admin-content" class="space-y-6">
+        
+        <!-- KPI Metrics Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Issues</div>
+            <div id="stat-total-issues" class="text-2xl font-black text-slate-900 mt-1">0</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Citizen Reports</div>
+            <div id="stat-total-reports" class="text-2xl font-black text-blue-600 mt-1">0</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Dupes Merged</div>
+            <div id="stat-dupes-prevented" class="text-2xl font-black text-indigo-600 mt-1">0</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Critical/High</div>
+            <div id="stat-critical-count" class="text-2xl font-black text-rose-600 mt-1">0</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pending</div>
+            <div id="stat-pending-count" class="text-2xl font-black text-amber-600 mt-1">0</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Resolved</div>
+            <div id="stat-resolved-count" class="text-2xl font-black text-emerald-600 mt-1">0</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Avg Res. Time</div>
+            <div id="stat-avg-hours" class="text-2xl font-black text-slate-700 mt-1">-</div>
+          </div>
+
+        </div>
+
+        <!-- Campus/City Map View -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-slate-900 text-sm">Geospatial Issue Distribution</h3>
+              <p class="text-xs text-slate-500">Live view of pins colored by urgency (Red = Critical, Yellow = Medium, Green = Resolved).</p>
+            </div>
+            <button onclick="Admin.loadMapMarkers()" class="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">Refresh Map</button>
+          </div>
+          <div class="h-72 w-full rounded-xl overflow-hidden border border-slate-200">
+            <div id="admin-map"></div>
+          </div>
+        </div>
+
+        <!-- Issues Triage Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          
+          <!-- Filters & Search Toolbar -->
+          <div class="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-wrap gap-3 items-center justify-between">
+            <div class="flex-1 min-w-[200px]">
+              <input id="filter-search" type="text" placeholder="Search by issue title, landmark..." class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 bg-white">
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <select id="filter-status" class="text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white">
+                <option value="">All Statuses</option>
+                <option value="REPORTED">REPORTED</option>
+                <option value="PENDING">PENDING</option>
+                <option value="ASSIGNED">ASSIGNED</option>
+                <option value="IN_PROGRESS">IN PROGRESS</option>
+                <option value="RESOLVED">RESOLVED</option>
+              </select>
+
+              <select id="filter-category" class="text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white">
+                <option value="">All Categories</option>
+                <option value="pothole">Pothole</option>
+                <option value="garbage">Garbage</option>
+                <option value="damaged_streetlight">Damaged Streetlight</option>
+              </select>
+
+              <select id="filter-priority" class="text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white">
+                <option value="">All Priorities</option>
+                <option value="CRITICAL">CRITICAL</option>
+                <option value="HIGH">HIGH</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="LOW">LOW</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-100/75 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200">
+                  <th class="py-3 px-4">ID</th>
+                  <th class="py-3 px-4">Problem / Location</th>
+                  <th class="py-3 px-4">Category</th>
+                  <th class="py-3 px-4">Priority</th>
+                  <th class="py-3 px-4">Reports</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-issues-table-body" class="divide-y divide-slate-100">
+                <!-- Injected via admin.js -->
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- PANEL 4: ABOUT CIVORA, SDGS & ARCHITECTURE -->
+    <!-- ============================================================= -->
+    <section id="panel-about" class="hidden space-y-6 max-w-4xl mx-auto">
+      
+      <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+        <div>
+          <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">Master Project Blueprint</span>
+          <h2 class="text-2xl font-black text-slate-900 mt-1">About Civora AI Platform</h2>
+          <p class="text-sm text-slate-600 mt-2 leading-relaxed">
+            Civora is an AI-powered civic infrastructure issue management platform engineered to solve the disconnect between citizen observations and actionable municipal maintenance tasks.
+          </p>
+        </div>
+
+        <!-- UN Sustainable Development Goals Alignment -->
+        <div class="border-t pt-6">
+          <h3 class="font-bold text-slate-900 text-sm mb-3">Aligned UN Sustainable Development Goals (SDGs)</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 rounded-xl bg-amber-50/70 border border-amber-200">
+              <span class="text-xs font-black text-amber-800">SDG 11: Sustainable Cities & Communities</span>
+              <p class="text-xs text-amber-900/80 mt-1">
+                Fosters safe, resilient, and inclusive communities through proactive road maintenance, prompt sanitation management, and functional public lighting.
+              </p>
+            </div>
+            <div class="p-4 rounded-xl bg-blue-50/70 border border-blue-200">
+              <span class="text-xs font-black text-blue-800">SDG 9: Industry, Innovation & Infrastructure</span>
+              <p class="text-xs text-blue-900/80 mt-1">
+                Applies edge-ready computer vision, geospatial clustering, and automated prioritization algorithms to modernize public infrastructure upkeep.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Technical Model Specs -->
+        <div class="border-t pt-6">
+          <h3 class="font-bold text-slate-900 text-sm mb-3">AI & Computer Vision Core</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div class="text-[10px] text-slate-500 font-bold uppercase">Model Architecture</div>
+              <div class="text-sm font-extrabold text-slate-900 mt-1">YOLOv8 Nano</div>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div class="text-[10px] text-slate-500 font-bold uppercase">mAP@50 Metric</div>
+              <div class="text-sm font-extrabold text-emerald-600 mt-1">0.759 (75.9%)</div>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div class="text-[10px] text-slate-500 font-bold uppercase">mAP@50-95 Metric</div>
+              <div class="text-sm font-extrabold text-blue-600 mt-1">0.601 (60.1%)</div>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div class="text-[10px] text-slate-500 font-bold uppercase">Authenticity Guard</div>
+              <div class="text-sm font-extrabold text-indigo-600 mt-1">HF Synthetic Filter</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Priority Formula -->
+        <div class="border-t pt-6">
+          <h3 class="font-bold text-slate-900 text-sm mb-2">Smart Prioritization Rule Formula</h3>
+          <p class="text-xs text-slate-600 mb-3">
+            In compliance with Section 8 & 13 of the project blueprint, priority is calculated using transparent backend business logic:
+          </p>
+          <div class="p-4 bg-slate-900 text-slate-200 rounded-xl font-mono text-xs overflow-x-auto">
+            Priority Score = (Severity × 0.5) + (Category Hazard × 0.3) + (Report Count × 6) + Aging Factor
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ============================================================= -->
+  <!-- SLIDE-OVER DRAWER: ISSUE DETAILS & TRIAGE -->
+  <!-- ============================================================= -->
+  <div id="issue-detail-drawer" class="fixed inset-0 z-50 overflow-hidden hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-xs transition-opacity" onclick="Admin.closeDrawer()"></div>
+    
+    <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+      <div class="w-screen max-w-md bg-white shadow-2xl flex flex-col">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <span class="font-bold text-slate-800 text-sm">Issue Management & Triage</span>
+          <button onclick="Admin.closeDrawer()" class="p-1 rounded-md text-slate-400 hover:text-slate-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div id="drawer-content" class="flex-1 overflow-y-auto p-5">
+          <!-- Injected via admin.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- MODAL: RESOLUTION WITH EVIDENCE PHOTO -->
+  <!-- ============================================================= -->
+  <div id="resolve-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-xs" onclick="Admin.closeResolveModal()"></div>
+    
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 relative z-10 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-slate-900 text-base">Close Issue with Resolution Proof</h3>
+        <button onclick="Admin.closeResolveModal()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <p class="text-xs text-slate-500">Provide remarks on work done and optionally attach a photo of the completed repair.</p>
+
+      <form id="resolve-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Resolution Remarks *</label>
+          <textarea id="resolve-notes" rows="3" required placeholder="e.g., Pothole filled with cold mix bitumen and compacted." class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Completion Photo Proof</label>
+          <input id="resolve-photo-input" type="file" accept="image/*" class="w-full text-xs border border-slate-200 rounded-lg p-2 bg-slate-50">
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="Admin.closeResolveModal()" class="flex-1 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button type="submit" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm">Mark Resolved</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- MODAL: VIEW RESOLUTION PROOF (CITIZEN VIEW) -->
+  <!-- ============================================================= -->
+  <div id="resolution-proof-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-xs" onclick="document.getElementById('resolution-proof-modal').classList.add('hidden')"></div>
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 relative z-10 shadow-2xl space-y-3">
+      <div class="flex items-center justify-between">
+        <h4 class="font-bold text-slate-900 text-sm">Authority Resolution Proof</h4>
+        <button onclick="document.getElementById('resolution-proof-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <img id="res-proof-img" src="#" alt="Proof Photo" class="w-full h-60 object-cover rounded-xl border border-slate-200">
+      <div class="p-3 bg-slate-50 rounded-xl">
+        <div class="text-[10px] text-slate-400 font-bold uppercase">Official Remarks</div>
+        <p id="res-proof-notes" class="text-xs text-slate-700 mt-0.5"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- MODAL: AUTHENTICATION (SIGN IN / REGISTER) -->
+  <!-- ============================================================= -->
+  <div id="auth-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-xs" onclick="Auth.closeModal()"></div>
+    
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 relative z-10 shadow-2xl">
+      <div class="flex items-center justify-between pb-3">
+        <h3 class="font-bold text-slate-900 text-base">Civora Account</h3>
+        <button id="auth-modal-close" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex border-b border-slate-200 mb-4">
+        <button id="tab-login-btn" onclick="Auth.switchTab('login')" class="flex-1 py-2 text-sm font-semibold text-blue-600 border-b-2 border-blue-600">
+          Sign In
+        </button>
+        <button id="tab-reg-btn" onclick="Auth.switchTab('register')" class="flex-1 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent">
+          Register
+        </button>
+      </div>
+
+      <!-- Login Form -->
+      <div id="login-form-container">
+        <form id="login-form" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+            <input id="login-email" type="email" required placeholder="you@civora.org" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+            <input id="login-password" type="password" required placeholder="••••••••" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
+          </div>
+          <div id="login-error" class="text-rose-600 text-xs font-medium"></div>
+          <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs">
+            Sign In
+          </button>
+        </form>
+
+        <!-- Quick 1-Click Demo Login Shortcuts -->
+        <div class="mt-4 pt-3 border-t border-slate-100 space-y-2">
+          <div class="text-[11px] text-slate-400 font-semibold text-center">Quick Demo Logins:</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="document.getElementById('login-email').value='admin@civora.org'; document.getElementById('login-password').value='admin123';" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-lg transition text-center">
+              🔑 Load Admin
+            </button>
+            <button onclick="document.getElementById('login-email').value='citizen@civora.org'; document.getElementById('login-password').value='citizen123';" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-lg transition text-center">
+              👤 Load Citizen
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Register Form -->
+      <div id="register-form-container" class="hidden">
+        <form id="register-form" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+            <input id="reg-name" type="text" required placeholder="Abhay Chauhan" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+            <input id="reg-email" type="email" required placeholder="name@domain.com" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+            <input id="reg-password" type="password" required placeholder="••••••••" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Role</label>
+            <select id="reg-role" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white font-medium">
+              <option value="CITIZEN">Citizen / Campus Resident</option>
+              <option value="ADMIN">Facility / City Administrator</option>
+            </select>
+          </div>
+          <div id="reg-error" class="text-rose-600 text-xs font-medium"></div>
+          <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs">
+            Create Account
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Application Scripts -->
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/citizen.js"></script>
+  <script src="/js/admin.js"></script>
+  <script src="/js/app.js"></script>
+
+</body>
+</html>
