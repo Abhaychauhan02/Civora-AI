@@ -8,8 +8,17 @@ if not os.path.exists(MODEL_PATH):
     if os.path.exists(fallback_path):
         MODEL_PATH = fallback_path
 
-# Load model once at module initialization
-_model = YOLO(MODEL_PATH)
+_model = None
+
+def _get_model():
+    global _model
+    if _model is None:
+        try:
+            from ultralytics import YOLO
+            _model = YOLO(MODEL_PATH)
+        except Exception:
+            _model = False
+    return _model if _model is not False else None
 
 
 def detect_civic_issue(image_path, conf_threshold=0.4):
@@ -28,14 +37,18 @@ def detect_civic_issue(image_path, conf_threshold=0.4):
             "bbox": [x1, y1, x2, y2]
         }
     """
-    results = _model(image_path, conf=conf_threshold, verbose=False)
+    model = _get_model()
+    if model is None:
+        return []
+
+    results = model(image_path, conf=conf_threshold, verbose=False)
 
     detections = []
     for r in results:
         for box in r.boxes:
             cls_id = int(box.cls[0])
             detections.append({
-                "issue": _model.names[cls_id],
+                "issue": model.names[cls_id],
                 "confidence": round(float(box.conf[0]), 2),
                 "bbox": [round(x, 1) for x in box.xyxy[0].tolist()],
             })

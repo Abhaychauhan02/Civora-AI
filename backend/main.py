@@ -99,7 +99,7 @@ def health():
 
 
 # Mount Frontend Progressive Web Application at root
-frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
+frontend_dir = os.path.join(ROOT_DIR, "frontend")
 if os.path.exists(frontend_dir):
     app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 

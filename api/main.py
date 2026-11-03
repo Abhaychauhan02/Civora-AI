@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from src.inference.predict import predict
 from src.preprocessing.image import preprocess_image
-from src.inference.detect import _model
+from src.inference.detect import _get_model
 
 app = FastAPI(
     title="Civora AI Computer Vision Service",
@@ -60,19 +60,21 @@ class PredictionResponse(BaseModel):
 
 @app.get("/")
 def root():
+    model = _get_model()
     return {
         "service": "Civora AI Vision Microservice",
         "status": "healthy",
-        "supported_classes": list(_model.names.values()) if hasattr(_model, "names") else []
+        "supported_classes": list(model.names.values()) if model and hasattr(model, "names") else []
     }
 
 
 @app.get("/health")
 def health_check():
+    model = _get_model()
     return {
         "status": "ok",
-        "model_loaded": _model is not None,
-        "classes": _model.names if hasattr(_model, "names") else {}
+        "model_loaded": model is not None,
+        "classes": model.names if model and hasattr(model, "names") else {}
     }
 
 
