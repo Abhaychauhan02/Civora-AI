@@ -15,9 +15,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.app.config import PORT, HOST, UPLOAD_DIR
+from backend.app.config import PORT, HOST, UPLOAD_DIR, ALLOWED_ORIGINS
 from backend.app.database import init_db, get_db
 from backend.app.auth import hash_password
+from backend.app.security_utils import SecurityHeadersMiddleware
 from backend.app.routes.auth_routes import router as auth_router
 from backend.app.routes.report_routes import router as report_router
 from backend.app.routes.issue_routes import router as issue_router
@@ -70,12 +71,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for frontend PWA
+# Defensive security headers
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Enable CORS with configured allowlist and regex for Vercel/Render preview deploys
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app|https://.*\.onrender\.com",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

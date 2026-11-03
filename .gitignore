@@ -21,12 +21,16 @@ ENV/
 
 # Large Datasets and raw files
 datasets/civic_detection_raw/
+datasets/civic_detection_v2/
+datasets/authenticity_eval/
+datasets/authenticity_splits/
+*.cache
 temp_uploads/
 uploads/
 
 # Large training run checkpoints
-runs/detect/**/train_batch*.jpg
-runs/detect/**/val_batch*.jpg
+runs/
+eval_results/
 *.pt
 
 # Node / Frontend

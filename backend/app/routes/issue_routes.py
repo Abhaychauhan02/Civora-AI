@@ -2,7 +2,6 @@
 import os
 import uuid
 import json
-import shutil
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query
 from pydantic import BaseModel
@@ -10,6 +9,7 @@ from pydantic import BaseModel
 from backend.app.config import UPLOAD_DIR
 from backend.app.database import get_db
 from backend.app.auth import require_admin, require_auth
+from backend.app.security_utils import validate_image_upload
 
 router = APIRouter(prefix="/api/issues", tags=["Issues"])
 
@@ -147,7 +147,6 @@ def update_issue_status(
             WHERE id = ?
         """, (target_status, issue_id))
 
-        # Log timeline
         cursor.execute("""
             INSERT INTO issue_timeline (id, issue_id, from_status, to_status, action_notes, actor_name)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -214,16 +213,26 @@ async def resolve_issue(
 ):
     """
     Closes the issue with mandatory resolution remarks and optional resolution proof photo.
+    Enforces image validation on proof upload.
     """
     res_web_url = None
     if resolution_image:
-        file_ext = os.path.splitext(resolution_image.filename or "proof.jpg")[1] or ".jpg"
-        res_filename = f"res_{uuid.uuid4().hex[:12]}{file_ext}"
+        try:
+            file_bytes = await resolution_image.read()
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Failed to read resolution image: {str(exc)}")
+
+        is_valid, err_msg, canonical_ext = validate_image_upload(file_bytes, resolution_image.filename or "proof.jpg")
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"Resolution proof validation failed: {err_msg}")
+
+        res_filename = f"res_{uuid.uuid4().hex[:12]}{canonical_ext}"
         res_rel_path = os.path.join("resolutions", res_filename)
         res_abs_path = os.path.join(UPLOAD_DIR, res_rel_path)
 
+        os.makedirs(os.path.dirname(res_abs_path), exist_ok=True)
         with open(res_abs_path, "wb") as buf:
-            shutil.copyfileobj(resolution_image.file, buf)
+            buf.write(file_bytes)
         res_web_url = f"/uploads/resolutions/{res_filename}"
 
     with get_db() as conn:

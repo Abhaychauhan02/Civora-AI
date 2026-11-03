@@ -1,6 +1,7 @@
-train: /Users/abhaychauhan/Desktop/civora-ai/datasets/civic_detection/images/train
-val: /Users/abhaychauhan/Desktop/civora-ai/datasets/civic_detection/images/val
-test: /Users/abhaychauhan/Desktop/civora-ai/datasets/civic_detection/images/test
+path: datasets/civic_detection
+train: images/train
+val: images/val
+test: images/test
 
 nc: 3
 names: ['pothole', 'garbage', 'damaged_streetlight']
