@@ -1,14 +1,19 @@
-// Citizen Reporting Flow & Tracking Logic
+// ==========================================================================
+// CIVORA CITIZEN INTERACTION CONTROLLER
+// Handles Image Upload, Bounding Box Rendering, Geolocation, AI Diagnostics
+// & Multi-step Lifecycle Tracking
+// ==========================================================================
+
 const Citizen = {
   map: null,
   marker: null,
-  currentLat: 28.6139, // Default coordinates (New Delhi)
+  currentLat: 28.6139, // Default: New Delhi
   currentLng: 77.2090,
   selectedFile: null,
 
   init() {
     this.initMap();
-    this.bindEvents();
+    this.bindDropZone();
   },
 
   initMap() {
@@ -21,7 +26,18 @@ const Citizen = {
       attribution: "© OpenStreetMap contributors"
     }).addTo(this.map);
 
-    this.marker = L.marker([this.currentLat, this.currentLng], { draggable: true }).addTo(this.map);
+    // Draggable marker with custom SVG icon
+    const customIcon = L.divIcon({
+      className: "custom-civora-marker marker-critical",
+      html: `<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+
+    this.marker = L.marker([this.currentLat, this.currentLng], {
+      draggable: true,
+      icon: customIcon
+    }).addTo(this.map);
 
     this.marker.on("dragend", (e) => {
       const pos = e.target.getLatLng();
@@ -72,62 +88,114 @@ const Citizen = {
     }
   },
 
-  handleImageSelection(file) {
+  bindDropZone() {
+    const dropZone = document.getElementById("drop-zone");
+    if (!dropZone) return;
+
+    ["dragenter", "dragover"].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add("border-blue-600", "bg-blue-50/50");
+      });
+    });
+
+    ["dragleave", "drop"].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove("border-blue-600", "bg-blue-50/50");
+      });
+    });
+
+    dropZone.addEventListener("drop", (e) => {
+      const dt = e.dataTransfer;
+      if (dt && dt.files && dt.files[0]) {
+        this.processFile(dt.files[0]);
+      }
+    });
+  },
+
+  handleFileSelect(event) {
+    if (event.target.files && event.target.files[0]) {
+      this.processFile(event.target.files[0]);
+    }
+  },
+
+  processFile(file) {
     if (!file) return;
 
-    // Client-side file size validation (10 MB limit)
+    // Validate size (10 MB limit)
     const MAX_SIZE = 10 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
-      showToast("Selected image exceeds the 10 MB limit. Please choose a smaller photo.", "error");
+      showToast("Selected image exceeds 10 MB limit. Please choose a smaller photo.", "error");
       return;
     }
 
-    // Client-side extension validation
-    const validTypes = ["image/jpeg", "image/png", "image/webp"];
-    if (file.type && !validTypes.includes(file.type)) {
+    // Validate MIME
+    const validMimes = ["image/jpeg", "image/png", "image/webp"];
+    if (file.type && !validMimes.includes(file.type)) {
       showToast("Unsupported file type. Please upload a JPEG, PNG, or WebP photo.", "error");
       return;
     }
 
     this.selectedFile = file;
-    this.clearBoundingBoxes();
 
-    const previewImg = document.getElementById("report-img-preview");
-    const previewContainer = document.getElementById("preview-container");
-    const uploadPrompt = document.getElementById("upload-prompt");
-
+    // Display image preview
     const reader = new FileReader();
     reader.onload = (e) => {
-      previewImg.src = e.target.result;
-      previewContainer.classList.remove("hidden");
-      uploadPrompt.classList.add("hidden");
+      const previewImg = document.getElementById("image-preview");
+      const previewWrapper = document.getElementById("preview-wrapper");
+      const dropPlaceholder = document.getElementById("drop-placeholder");
+      const fileMeta = document.getElementById("file-meta");
+
+      if (previewImg && previewWrapper && dropPlaceholder) {
+        previewImg.src = e.target.result;
+        previewWrapper.classList.remove("hidden");
+        dropPlaceholder.classList.add("hidden");
+
+        const sizeKb = (file.size / 1024).toFixed(1);
+        if (fileMeta) fileMeta.textContent = `${file.name} (${sizeKb} KB)`;
+      }
+
+      this.clearBoundingBoxes();
     };
     reader.readAsDataURL(file);
   },
 
-  clearImage() {
+  resetImage() {
     this.selectedFile = null;
-    const input = document.getElementById("image-file-input");
+    const input = document.getElementById("image-input");
     if (input) input.value = "";
-    document.getElementById("preview-container").classList.add("hidden");
-    document.getElementById("upload-prompt").classList.remove("hidden");
-    document.getElementById("ai-preview-card").classList.add("hidden");
+
+    const previewWrapper = document.getElementById("preview-wrapper");
+    const dropPlaceholder = document.getElementById("drop-placeholder");
+    const diagCard = document.getElementById("ai-diagnostic-card");
+
+    if (previewWrapper) previewWrapper.classList.add("hidden");
+    if (dropPlaceholder) dropPlaceholder.classList.remove("hidden");
+    if (diagCard) diagCard.classList.add("hidden");
+
     this.clearBoundingBoxes();
   },
 
   clearBoundingBoxes() {
-    const overlay = document.getElementById("bbox-overlay");
-    if (overlay) overlay.innerHTML = "";
+    const canvas = document.getElementById("bbox-canvas");
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    // Remove any DOM bounding boxes
+    document.querySelectorAll(".bbox-box").forEach(el => el.remove());
   },
 
   drawBoundingBoxes(detections) {
-    const overlay = document.getElementById("bbox-overlay");
-    const img = document.getElementById("report-img-preview");
-    if (!overlay || !img || !detections || detections.length === 0) return;
+    const container = document.getElementById("bbox-container");
+    const img = document.getElementById("image-preview");
+    if (!container || !img || !detections || detections.length === 0) return;
 
-    overlay.innerHTML = "";
+    this.clearBoundingBoxes();
 
-    // Calculate scale factor once image has natural dimensions loaded
     const onRender = () => {
       const naturalW = img.naturalWidth || 640;
       const naturalH = img.naturalHeight || 640;
@@ -145,21 +213,20 @@ const Citizen = {
         const width = (x2 - x1) * scaleX;
         const height = (y2 - y1) * scaleY;
 
-        const boxEl = document.createElement("div");
-        boxEl.className = "bbox-box";
-        boxEl.style.left = `${left}px`;
-        boxEl.style.top = `${top}px`;
-        boxEl.style.width = `${width}px`;
-        boxEl.style.height = `${height}px`;
+        const box = document.createElement("div");
+        box.className = "bbox-box";
+        box.style.left = `${left}px`;
+        box.style.top = `${top}px`;
+        box.style.width = `${width}px`;
+        box.style.height = `${height}px`;
 
-        const labelEl = document.createElement("div");
-        labelEl.className = "bbox-label";
-        const issueName = d.issue.replace("_", " ").toUpperCase();
-        const confPct = Math.round(d.confidence * 100);
-        labelEl.textContent = `${issueName} ${confPct}%`;
+        const confPct = Math.round((d.confidence || 0) * 100);
+        const label = document.createElement("div");
+        label.className = "bbox-label";
+        label.textContent = `${d.class_name || "defect"} (${confPct}%)`;
 
-        boxEl.appendChild(labelEl);
-        overlay.appendChild(boxEl);
+        box.appendChild(label);
+        container.appendChild(box);
       });
     };
 
@@ -170,291 +237,271 @@ const Citizen = {
     }
   },
 
-  async handleSubmit(e) {
-    e.preventDefault();
+  renderAuthenticityTransparency(authData) {
+    const diagCard = document.getElementById("ai-diagnostic-card");
+    const authBadge = document.getElementById("diag-authenticity");
+    const authScore = document.getElementById("diag-auth-score");
+    const authExpl = document.getElementById("diag-auth-explanation");
+
+    if (!diagCard || !authBadge || !authData) return;
+    diagCard.classList.remove("hidden");
+
+    const status = authData.status || "LIKELY_AUTHENTIC";
+    const scoreVal = typeof authData.authenticity_score === "number" ? authData.authenticity_score.toFixed(2) : "N/A";
+    if (authScore) authScore.textContent = `Score: ${scoreVal}`;
+
+    const config = {
+      LIKELY_AUTHENTIC: {
+        text: "LIKELY AUTHENTIC",
+        cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        expl: "Natural optical grain and camera sensor characteristics verified. Standard automated triage."
+      },
+      UNCERTAIN: {
+        text: "ANALYSIS UNCERTAIN",
+        cls: "bg-amber-50 text-amber-700 border-amber-200",
+        expl: "Lighting or compression limits automated confidence. Proceeding to standard triage with human verification."
+      },
+      REVIEW_REQUIRED: {
+        text: "HUMAN REVIEW RECOMMENDED",
+        cls: "bg-blue-50 text-blue-700 border-blue-200",
+        expl: "High texture variance detected. Scheduled for technician review; report remains active."
+      },
+      SUSPICIOUS: {
+        text: "SYNTHETIC ARTIFACTS FLAGGED",
+        cls: "bg-rose-50 text-rose-700 border-rose-200",
+        expl: "AI-generated patterns flagged. Queued for manual administrative inspection before dispatch."
+      }
+    };
+
+    const c = config[status] || config.LIKELY_AUTHENTIC;
+    authBadge.className = `font-extrabold text-xs px-2 py-0.5 rounded-full border ${c.cls}`;
+    authBadge.textContent = c.text;
+    if (authExpl) authExpl.textContent = c.expl;
+  },
+
+  async submitReport(event) {
+    event.preventDefault();
+
     if (!this.selectedFile) {
-      showToast("Please capture or upload an image of the issue", "warning");
+      showToast("Please upload or capture a photo of the civic defect.", "error");
       return;
     }
 
-    const submitBtn = document.getElementById("submit-report-btn");
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `
-      <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      Analyzing with AI Vision & Verification...
-    `;
+    const descInput = document.getElementById("desc-input");
+    const addressInput = document.getElementById("address-input");
+    const submitBtn = document.getElementById("btn-submit-report");
+    const progressEl = document.getElementById("submit-progress");
+    const progressFill = document.getElementById("progress-bar-fill");
+    const progressPct = document.getElementById("submit-percentage");
+
+    const formData = new FormData();
+    formData.append("image", this.selectedFile);
+    formData.append("latitude", this.currentLat.toString());
+    formData.append("longitude", this.currentLng.toString());
+    formData.append("address", addressInput ? addressInput.value.trim() : "");
+    formData.append("description", descInput ? descInput.value.trim() : "");
 
     try {
-      const formData = new FormData();
-      formData.append("image", this.selectedFile);
-      formData.append("latitude", this.currentLat);
-      formData.append("longitude", this.currentLng);
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span>Running AI Diagnostics & Submitting...</span>
+      `;
+      progressEl.classList.remove("hidden");
+      progressFill.style.width = "40%";
+      progressPct.textContent = "40%";
 
-      const address = document.getElementById("report-address").value.trim();
-      if (address) formData.append("address", address);
+      const result = await Api.submitReport(formData);
 
-      const desc = document.getElementById("report-desc").value.trim();
-      if (desc) formData.append("description", desc);
+      progressFill.style.width = "100%";
+      progressPct.textContent = "100%";
 
-      const res = await Api.submitReport(formData);
+      showToast("Report submitted successfully! AI analysis complete.", "success");
 
-      // Display AI results card with transparent split diagnostics
-      this.displayAiResults(res);
+      // Update AI Diagnostics Card
+      const categoryEl = document.getElementById("diag-category");
+      const confEl = document.getElementById("diag-confidence");
+      const diagCard = document.getElementById("ai-diagnostic-card");
 
-      // Draw bounding box highlights over image preview
-      if (res.ai_analysis && res.ai_analysis.detections) {
-        this.drawBoundingBoxes(res.ai_analysis.detections);
+      if (diagCard) diagCard.classList.remove("hidden");
+      if (categoryEl) categoryEl.textContent = (result.ai_category || "Civic Defect").toUpperCase();
+      if (confEl) confEl.textContent = `${Math.round((result.ai_confidence || 0) * 100)}% conf`;
+
+      if (result.ai_detections) {
+        this.drawBoundingBoxes(result.ai_detections);
       }
 
-      if (res.is_linked_to_existing_issue) {
-        showToast("Report submitted! Clustered with existing nearby issue; priority boosted.", "success");
-      } else {
-        showToast("New civic issue successfully logged & queued for dispatch!", "success");
+      if (result.authenticity_result) {
+        this.renderAuthenticityTransparency(result.authenticity_result);
       }
 
-      // Reset input fields but preserve preview card for citizen visibility
-      const fileInput = document.getElementById("image-file-input");
-      if (fileInput) fileInput.value = "";
-      document.getElementById("report-desc").value = "";
-      document.getElementById("report-address").value = "";
+      // Scroll smoothly to the diagnostic card
+      diagCard.scrollIntoView({ behavior: "smooth", block: "center" });
 
     } catch (err) {
-      showToast(err.message || "Failed to submit report", "error");
+      console.error("Submission failed:", err);
+      showToast(err.message || "Failed to submit report. Please check server connection.", "error");
     } finally {
       submitBtn.disabled = false;
-      submitBtn.innerHTML = originalText;
-    }
-  },
-
-  displayAiResults(res) {
-    const card = document.getElementById("ai-preview-card");
-    const aiData = res.ai_analysis;
-    if (!aiData || !card) return;
-
-    card.classList.remove("hidden");
-
-    // 1. Civic Detection Info
-    const cat = aiData.category.replace("_", " ").toUpperCase();
-    const conf = Math.round((aiData.confidence || 0) * 100);
-    const sev = aiData.severity_score || 0;
-    const detCount = (aiData.detections || []).length;
-
-    document.getElementById("ai-res-category").textContent = cat;
-    document.getElementById("ai-res-confidence").textContent = `${conf}%`;
-    document.getElementById("ai-res-severity").textContent = `${sev}/100`;
-
-    const countEl = document.getElementById("ai-det-count");
-    if (countEl) {
-      countEl.textContent = `${detCount} object${detCount === 1 ? '' : 's'} located`;
-    }
-
-    // 2. Authenticity Display (Handling all 4 states transparently without accusatory language)
-    const authStatus = aiData.authenticity?.status || "LIKELY_AUTHENTIC";
-    const authExplanation = aiData.authenticity?.explanation || "Image exhibits natural photographic characteristics.";
-    const authEl = document.getElementById("ai-res-auth");
-    const explanationEl = document.getElementById("ai-res-auth-explanation");
-
-    if (authStatus === "LIKELY_AUTHENTIC") {
-      authEl.className = "text-emerald-300 bg-emerald-950/80 border border-emerald-700/80 px-2.5 py-0.5 rounded-full text-[11px] font-semibold";
-      authEl.textContent = "✓ Verified Authentic Capture";
-    } else if (authStatus === "UNCERTAIN") {
-      authEl.className = "text-sky-300 bg-sky-950/80 border border-sky-700/80 px-2.5 py-0.5 rounded-full text-[11px] font-semibold";
-      authEl.textContent = "ℹ Standard Processing";
-    } else if (authStatus === "REVIEW_REQUIRED") {
-      authEl.className = "text-amber-300 bg-amber-950/80 border border-amber-700/80 px-2.5 py-0.5 rounded-full text-[11px] font-semibold";
-      authEl.textContent = "🔍 Visual Verification Queued";
-    } else { // SUSPICIOUS
-      authEl.className = "text-purple-300 bg-purple-950/80 border border-purple-700/80 px-2.5 py-0.5 rounded-full text-[11px] font-semibold";
-      authEl.textContent = "📋 Secondary Audit Queued";
-    }
-
-    if (explanationEl) {
-      explanationEl.textContent = authExplanation;
-    }
-
-    // 3. Duplicate Linkage Status
-    const linkMsg = document.getElementById("ai-res-linked");
-    const linkText = document.getElementById("ai-res-linked-text");
-    if (linkMsg && linkText) {
-      if (res.is_linked_to_existing_issue) {
-        linkText.textContent = `Corroborated with active nearby issue #${res.issue_id}. Public priority escalated.`;
-        linkMsg.classList.remove("hidden");
-      } else {
-        linkText.textContent = `Registered new independent municipal issue #${res.issue_id}.`;
-        linkMsg.classList.remove("hidden");
-      }
+      submitBtn.innerHTML = `
+        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <span>Submit Another Report</span>
+      `;
+      setTimeout(() => progressEl.classList.add("hidden"), 1200);
     }
   },
 
   async loadMyReports() {
     const listEl = document.getElementById("my-reports-list");
-    const emptyEl = document.getElementById("my-reports-empty");
+    const countEl = document.getElementById("citizen-report-count");
     if (!listEl) return;
 
-    if (!Auth.currentUser) {
-      listEl.innerHTML = `
-        <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
-          <p class="text-blue-900 font-medium mb-3">Sign in to track your personal submitted reports & resolutions.</p>
-          <button onclick="Auth.openModal('login')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">Sign In</button>
-        </div>
-      `;
-      emptyEl.classList.add("hidden");
-      return;
-    }
-
-    listEl.innerHTML = `<div class="text-center py-8 text-slate-500">Loading your reports...</div>`;
+    listEl.innerHTML = `
+      <div class="p-8 text-center bg-white rounded-xl border border-slate-200 text-slate-400 text-xs">
+        Loading your incident history...
+      </div>
+    `;
 
     try {
       const res = await Api.getMyReports();
       const reports = res.reports || [];
+      if (countEl) countEl.textContent = reports.length.toString();
 
       if (reports.length === 0) {
-        listEl.innerHTML = "";
-        emptyEl.classList.remove("hidden");
+        listEl.innerHTML = `
+          <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+            <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900">No Submissions Found</h3>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto">You have not submitted any civic incident reports yet. Use the reporting portal to submit your first report.</p>
+            <button onclick="App.switchTab('report')" class="px-4 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+              Report an Issue
+            </button>
+          </div>
+        `;
         return;
       }
 
-      emptyEl.classList.add("hidden");
       listEl.innerHTML = reports.map(r => this.renderReportCard(r)).join("");
+
     } catch (err) {
-      listEl.innerHTML = `<div class="text-red-500 text-center py-4">${err.message}</div>`;
+      console.error("Failed to load reports:", err);
+      listEl.innerHTML = `
+        <div class="p-8 text-center bg-white rounded-xl border border-rose-200 text-rose-600 text-xs">
+          Unable to fetch your report history. Please ensure you are logged in.
+        </div>
+      `;
     }
   },
 
   renderReportCard(r) {
-    const statusSteps = ["REPORTED", "PENDING", "ASSIGNED", "IN_PROGRESS", "RESOLVED"];
-    const currentIdx = statusSteps.indexOf(r.issue_status) >= 0 ? statusSteps.indexOf(r.issue_status) : 0;
+    const dateStr = new Date(r.created_at || Date.now()).toLocaleDateString("en-US", {
+      month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit"
+    });
 
-    const priorityBadgeMap = {
-      CRITICAL: { text: "🚨 Critical Urgency", cls: "bg-red-50 text-red-700 border-red-200" },
-      HIGH: { text: "⚠️ High Priority", cls: "bg-orange-50 text-orange-700 border-orange-200" },
-      MEDIUM: { text: "⚡ Medium Priority", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-      LOW: { text: "ℹ️ Low Priority", cls: "bg-slate-50 text-slate-700 border-slate-200" }
-    };
-    const pInfo = priorityBadgeMap[r.issue_priority] || { text: "Normal", cls: "bg-slate-50 text-slate-700 border-slate-200" };
+    const statusStages = ["REPORTED", "PENDING", "ASSIGNED", "IN_PROGRESS", "RESOLVED"];
+    const currentIdx = statusStages.indexOf(r.issue_status || "REPORTED");
 
-    const dateStr = new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-
-    // Step indicators HTML
-    const stepsHtml = statusSteps.map((s, idx) => {
-      const isCompleted = idx <= currentIdx;
-      const isCurrent = idx === currentIdx;
-      const dotCls = isCurrent
-        ? "bg-blue-600 ring-4 ring-blue-100 text-white"
-        : (isCompleted ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-400");
-      const labelCls = isCurrent ? "font-bold text-blue-700" : (isCompleted ? "font-medium text-slate-700" : "text-slate-400");
+    // Stepper generation
+    const stepperHtml = statusStages.map((stage, idx) => {
+      let stateCls = "";
+      if (idx < currentIdx) stateCls = "completed";
+      else if (idx === currentIdx) stateCls = "active";
 
       return `
-        <div class="flex-1 text-center">
-          <div class="w-5 h-5 mx-auto rounded-full flex items-center justify-center text-[10px] ${dotCls}">
-            ${isCompleted && !isCurrent ? '✓' : idx + 1}
-          </div>
-          <div class="text-[10px] mt-1 ${labelCls} hidden sm:block">${s.replace('_', ' ')}</div>
+        <div class="stepper-step ${stateCls}">
+          <div class="stepper-circle">${idx < currentIdx ? "✓" : idx + 1}</div>
+          <span class="text-[9px] font-bold text-slate-500 hidden sm:block mt-1 uppercase">${stage.replace("_", " ")}</span>
         </div>
       `;
-    }).join('');
+    }).join("");
+
+    // Priority badge
+    const p = (r.priority_level || "MEDIUM").toUpperCase();
+    const priorityConfig = {
+      CRITICAL: { cls: "badge-priority-critical", text: "Critical Risk" },
+      HIGH: { cls: "badge-priority-high", text: "High Priority" },
+      MEDIUM: { cls: "badge-priority-medium", text: "Standard" },
+      LOW: { cls: "badge-priority-low", text: "Low Priority" }
+    };
+    const pInfo = priorityConfig[p] || priorityConfig.MEDIUM;
 
     return `
-      <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-sm transition">
-        <div class="sm:flex">
-          <div class="sm:w-52 h-44 bg-slate-900 flex-shrink-0 relative overflow-hidden">
-            <img src="${r.image_url}" alt="Civic Report" class="w-full h-full object-cover">
-            <span class="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full border ${pInfo.cls} shadow-xs">
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-card overflow-hidden">
+        <div class="p-6 flex flex-col md:flex-row gap-6">
+          
+          <!-- Image preview -->
+          <div class="w-full md:w-56 h-48 bg-slate-100 rounded-xl overflow-hidden shrink-0 border border-slate-200 relative">
+            <img src="${r.image_url}" alt="Incident" class="w-full h-full object-cover" />
+            <span class="absolute top-2 left-2 badge-priority ${pInfo.cls}">
               ${pInfo.text}
             </span>
           </div>
 
-          <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
+          <!-- Body -->
+          <div class="flex-1 flex flex-col justify-between space-y-4">
             <div>
-              <div class="flex items-start justify-between gap-2">
-                <h4 class="font-bold text-slate-900 text-sm">${r.issue_title || r.ai_category || "Civic Report"}</h4>
-                <span class="text-xs text-slate-400 whitespace-nowrap">${dateStr}</span>
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-xs font-bold text-slate-400">#REP-${r.id}</span>
+                    <h3 class="font-extrabold text-base text-slate-900">${(r.issue_title || r.ai_category || "Civic Defect").toUpperCase()}</h3>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
+                    <span>${r.address || `GPS: ${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}`}</span>
+                  </p>
+                </div>
+                <span class="text-[11px] font-mono text-slate-400 shrink-0">${dateStr}</span>
               </div>
-              <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                ${r.address || `GPS: ${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}`}
-              </p>
-              ${r.description ? `<p class="text-xs text-slate-600 mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100">"${r.description}"</p>` : ""}
+
+              ${r.description ? `
+                <p class="text-xs text-slate-600 mt-2 p-2.5 bg-slate-50 rounded-lg border border-slate-100 font-medium">"${r.description}"</p>
+              ` : ""}
             </div>
 
-            <!-- Multi-step Lifecycle Tracker -->
-            <div class="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
-              <div class="flex items-center justify-between relative">
-                ${stepsHtml}
+            <!-- 5-Step Lifecycle Stepper -->
+            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/60">
+              <div class="flex items-center justify-between">
+                ${stepperHtml}
               </div>
             </div>
 
-            <!-- Resolution Evidence section if resolved -->
+            <!-- Resolution Banner if closed -->
             ${r.issue_status === "RESOLVED" ? `
               <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
-                <div>
-                  <span class="text-xs font-bold text-emerald-800 flex items-center gap-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                    Resolution Verified & Closed
-                  </span>
-                  <p class="text-xs text-emerald-700 mt-0.5">${r.resolution_notes || "Repairs successfully completed by campus team."}</p>
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">✓</div>
+                  <div>
+                    <span class="text-xs font-bold text-emerald-900">Incident Resolved & Certified</span>
+                    <p class="text-[11px] text-emerald-700">${r.resolution_notes || "Field repair work completed by municipal dispatch."}</p>
+                  </div>
                 </div>
                 ${r.resolution_image_url ? `
-                  <button onclick="Citizen.viewResolutionModal('${r.resolution_image_url}', '${r.resolution_notes || ''}')" class="text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-white px-2.5 py-1.5 rounded-lg shadow-2xs border border-emerald-200 flex items-center gap-1">
-                    <span>View Proof</span>
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  <button onclick="Citizen.viewProofModal('${r.resolution_image_url}', '${r.resolution_notes || ''}')" class="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-300 font-bold rounded-lg hover:bg-emerald-100 transition shadow-2xs text-xs">
+                    View Proof
                   </button>
                 ` : ""}
               </div>
-            ` : `
-              <div class="flex items-center gap-1.5 text-xs text-slate-500">
-                <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                <span>Active in municipal resolution queue</span>
-              </div>
-            `}
+            ` : ""}
+
           </div>
         </div>
       </div>
     `;
   },
 
-  viewResolutionModal(imgUrl, notes) {
-    const modal = document.getElementById("resolution-proof-modal");
-    document.getElementById("res-proof-img").src = imgUrl;
-    document.getElementById("res-proof-notes").textContent = notes;
-    modal.classList.remove("hidden");
-  },
+  viewProofModal(imgUrl, notes) {
+    const modal = document.getElementById("modal-view-proof");
+    const imgEl = document.getElementById("proof-img");
+    const notesEl = document.getElementById("proof-notes");
 
-  bindEvents() {
-    const fileInput = document.getElementById("image-file-input");
-    const replaceBtn = document.getElementById("replace-img-btn");
-
-    if (fileInput) {
-      fileInput.addEventListener("change", (e) => {
-        if (e.target.files && e.target.files[0]) {
-          this.handleImageSelection(e.target.files[0]);
-        }
-      });
-    }
-
-    if (replaceBtn) {
-      replaceBtn.addEventListener("click", () => {
-        if (fileInput) fileInput.click();
-      });
-    }
-
-    const removeBtn = document.getElementById("remove-img-btn");
-    if (removeBtn) {
-      removeBtn.addEventListener("click", () => this.clearImage());
-    }
-
-    const locateBtn = document.getElementById("locate-me-btn");
-    if (locateBtn) {
-      locateBtn.addEventListener("click", () => this.locateUser());
-    }
-
-    const form = document.getElementById("report-form");
-    if (form) {
-      form.addEventListener("submit", (e) => this.handleSubmit(e));
-    }
+    if (imgEl) imgEl.src = imgUrl;
+    if (notesEl) notesEl.textContent = notes || "Repairs successfully verified.";
+    if (modal) modal.classList.remove("hidden");
   }
 };

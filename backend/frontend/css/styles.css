@@ -1,75 +1,322 @@
-/* Custom styles for Civora Platform */
+/* ==========================================================================
+   CIVORA CIVIC INTELLIGENCE PLATFORM — GLOBAL DESIGN SYSTEM & TOKENS
+   Theme: Modern CivicTech SaaS Operations Dashboard
+   Palette: Deep Navy (#0F172A), Slate Canvas (#F8FAFC), Crisp White (#FFFFFF)
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Color Palette */
+  --bg-canvas: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-muted: #F1F5F9;
+  --bg-subtle: #F8FAFC;
+  
+  --text-main: #0F172A;
+  --text-muted: #475569;
+  --text-subtle: #64748B;
+  --text-disabled: #94A3B8;
+
+  --border-light: #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  --primary-50: #EFF6FF;
+  --primary-100: #DBEAFE;
+  --primary-500: #3B82F6;
+  --primary-600: #2563EB;
+  --primary-700: #1D4ED8;
+  --primary-900: #1E3A8A;
+
+  /* Priority & Status Tokens */
+  --critical-bg: #FEF2F2;
+  --critical-text: #991B1B;
+  --critical-border: #FCA5A5;
+  --critical-dot: #DC2626;
+
+  --high-bg: #FFF7ED;
+  --high-text: #9A3412;
+  --high-border: #FDBA74;
+  --high-dot: #EA580C;
+
+  --medium-bg: #FFFBEB;
+  --medium-text: #92400E;
+  --medium-border: #FCD34D;
+  --medium-dot: #D97706;
+
+  --low-bg: #F0FDF4;
+  --low-text: #166534;
+  --low-border: #86EFAC;
+  --low-dot: #16A34A;
+
+  --resolved-bg: #F0FDF4;
+  --resolved-text: #15803D;
+  --resolved-border: #BBF7D0;
+  --resolved-dot: #22C55E;
+
+  --shadow-subtle: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.06);
+  --shadow-popover: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --shadow-drawer: -4px 0 24px rgba(15, 23, 42, 0.12);
+}
+
+/* Base Resets & Global Typography */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  -webkit-tap-highlight-color: transparent;
+  font-family: var(--font-sans);
+  background-color: var(--bg-canvas);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
+/* Custom Sleek Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #94A3B8;
+}
+
+/* Accessibility: Clear High-Contrast Focus Ring */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--primary-600);
+  outline-offset: 2px;
+}
+
+/* Priority Badges */
+.badge-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+.badge-priority-critical {
+  background-color: var(--critical-bg);
+  color: var(--critical-text);
+  border: 1px solid var(--critical-border);
+}
+.badge-priority-high {
+  background-color: var(--high-bg);
+  color: var(--high-text);
+  border: 1px solid var(--high-border);
+}
+.badge-priority-medium {
+  background-color: var(--medium-bg);
+  color: var(--medium-text);
+  border: 1px solid var(--medium-border);
+}
+.badge-priority-low {
+  background-color: var(--low-bg);
+  color: var(--low-text);
+  border: 1px solid var(--low-border);
+}
+
+/* Status Chips */
+.chip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.chip-status-reported {
+  background-color: #F1F5F9;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+}
+.chip-status-pending {
+  background-color: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+.chip-status-assigned {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+.chip-status-in-progress {
+  background-color: #EEF2FF;
+  color: #4338CA;
+  border: 1px solid #C7D2FE;
+}
+.chip-status-resolved {
+  background-color: #F0FDF4;
+  color: #15803D;
+  border: 1px solid #BBF7D0;
 }
 
 /* Map Containers */
-#report-map, #admin-map {
+#report-map, #admin-map, #live-full-map {
   width: 100%;
   height: 100%;
-  min-height: 250px;
+  min-height: 280px;
   border-radius: 0.75rem;
   z-index: 10;
+  background-color: #E2E8F0;
 }
 
-/* Image preview with bounding boxes */
+/* Custom Leaflet Marker Styling */
+.custom-civora-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.25);
+  border: 2px solid #FFFFFF;
+  transition: transform 0.15s ease-in-out;
+  cursor: pointer;
+}
+.custom-civora-marker:hover {
+  transform: scale(1.18);
+  z-index: 9999 !important;
+}
+
+.marker-critical { background: #DC2626; color: #FFF; }
+.marker-high { background: #EA580C; color: #FFF; }
+.marker-medium { background: #D97706; color: #FFF; }
+.marker-low { background: #2563EB; color: #FFF; }
+.marker-resolved { background: #16A34A; color: #FFF; }
+
+/* Image Bounding Box Overlay Canvas */
 .bbox-container {
   position: relative;
   display: inline-block;
   max-width: 100%;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
 }
-
 .bbox-box {
   position: absolute;
-  border: 2px solid #ef4444;
-  background-color: rgba(239, 68, 68, 0.2);
+  border: 2px solid #EF4444;
+  background-color: rgba(239, 68, 68, 0.18);
+  border-radius: 3px;
   pointer-events: none;
-  border-radius: 4px;
   transition: all 0.2s ease;
 }
-
 .bbox-label {
   position: absolute;
-  top: -22px;
+  top: -24px;
   left: 0;
-  background: #ef4444;
-  color: white;
-  font-size: 11px;
+  background: #0F172A;
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 600;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 3px;
   white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* Pulse badge */
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.03); }
+/* Slide-Over Drawer Transitions */
+.drawer-backdrop {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out;
+}
+.drawer-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+.slide-drawer {
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-drawer);
+}
+.slide-drawer.open {
+  transform: translateX(0);
 }
 
-.pulse-badge {
-  animation: pulse-subtle 2s infinite ease-in-out;
+/* Modern Stepper */
+.stepper-step {
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex: 1;
+}
+.stepper-step::after {
+  content: '';
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background-color: var(--border-light);
+  z-index: 1;
+}
+.stepper-step:last-child::after {
+  display: none;
+}
+.stepper-step.completed::after {
+  background-color: var(--primary-600);
+}
+.stepper-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background-color: #FFFFFF;
+  border: 2px solid var(--border-strong);
+  color: var(--text-subtle);
+  position: relative;
+  z-index: 2;
+}
+.stepper-step.active .stepper-circle {
+  border-color: var(--primary-600);
+  background-color: var(--primary-50);
+  color: var(--primary-600);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+.stepper-step.completed .stepper-circle {
+  border-color: var(--primary-600);
+  background-color: var(--primary-600);
+  color: #FFFFFF;
+}
+
+/* Pulse indicator for live streaming telemetry */
+@keyframes ping-subtle {
+  0% { transform: scale(1); opacity: 1; }
+  75%, 100% { transform: scale(1.8); opacity: 0; }
+}
+.telemetry-pulse {
+  position: relative;
+  display: inline-flex;
+}
+.telemetry-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: inherit;
+  animation: ping-subtle 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }

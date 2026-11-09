@@ -3,13 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Civora — AI Civic Issue Management Platform</title>
-  <meta name="description" content="AI-Powered Civic Issue Detection, Smart Prioritization & Resolution Management">
+  <title>Civora — AI-Powered Civic Intelligence & Resolution Platform</title>
+  <meta name="description" content="Next-generation civic infrastructure monitoring, YOLOv8 automated hazard detection, and municipal dispatch operations.">
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#2563EB">
+  <meta name="theme-color" content="#0F172A">
 
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+              950: '#0f172a',
+            }
+          }
+        }
+      }
+    }
+  </script>
   
   <!-- Leaflet CSS & JS for OpenStreetMap -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -18,643 +38,1044 @@
   <!-- Custom Styles -->
   <link rel="stylesheet" href="/css/styles.css">
 </head>
-<body class="h-full flex flex-col text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+<body class="h-full flex flex-col text-slate-800 antialiased selection:bg-blue-600 selection:text-white bg-[#F8FAFC]">
 
-  <!-- Top Navigation Header -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+  <!-- Top Global Header (Citizen & Admin Switcher) -->
+  <header id="main-header" class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       
-      <!-- Brand & Status -->
+      <!-- Brand & Platform Subtitle -->
       <div class="flex items-center gap-3 cursor-pointer" onclick="App.switchTab('report')">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md">
-          C
+        <div class="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white font-black text-lg shadow-sm border border-slate-700">
+          <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <span class="font-extrabold text-lg tracking-tight text-slate-900">CIVORA</span>
-            <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span class="font-extrabold text-base tracking-tight text-slate-900">CIVORA</span>
+            <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              AI Core Active
+              OPS ACTIVE
             </span>
           </div>
-          <p class="text-[11px] text-slate-500 font-medium hidden sm:block">Civic Issue Detection & Resolution Platform</p>
+          <p class="text-[11px] text-slate-500 font-medium hidden sm:block">Civic Intelligence & Resolution Platform</p>
         </div>
       </div>
 
-      <!-- Navigation Tabs -->
+      <!-- Navigation Switcher -->
       <nav class="flex items-center gap-1 sm:gap-2">
-        <button id="nav-report" data-tab="report" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-600">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+        <button id="nav-report" data-tab="report" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-900 transition">
+          <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
           <span class="hidden sm:inline">Report Issue</span>
           <span class="sm:hidden">Report</span>
         </button>
 
-        <button id="nav-my-reports" data-tab="my-reports" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+        <button id="nav-my-reports" data-tab="my-reports" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
           <span class="hidden sm:inline">My Submissions</span>
           <span class="sm:hidden">Tracking</span>
         </button>
 
-        <button id="nav-admin" data-tab="admin" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-          <span>Admin Portal</span>
+        <button id="nav-admin" data-tab="admin" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+          <span class="hidden sm:inline">Admin Operations</span>
+          <span class="sm:hidden">Admin</span>
         </button>
 
-        <button id="nav-about" data-tab="about" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <span class="hidden md:inline">SDGs & Architecture</span>
-        </button>
+        <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+        <!-- Auth Button / User Profile -->
+        <div id="auth-nav-container">
+          <button id="btn-open-auth-modal" onclick="Auth.openModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 shadow-xs transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            <span>Sign In</span>
+          </button>
+
+          <div id="user-profile-badge" class="hidden flex items-center gap-2">
+            <div class="w-7 h-7 rounded-full bg-blue-100 border border-blue-300 text-blue-700 flex items-center justify-center text-xs font-bold" id="user-avatar-initials">
+              U
+            </div>
+            <button onclick="Auth.logout()" class="text-[11px] font-semibold text-rose-600 hover:text-rose-800 px-2 py-1 rounded hover:bg-rose-50 transition" title="Sign Out">
+              Logout
+            </button>
+          </div>
+        </div>
       </nav>
-
-      <!-- Auth Action Button -->
-      <div id="auth-btn">
-        <!-- Injected via auth.js -->
-      </div>
-
     </div>
   </header>
 
-  <!-- Main Content Container -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+  <!-- ========================================================================= -->
+  <!-- TAB 1: CITIZEN REPORTING & LANDING EXPERIENCE                             -->
+  <!-- ========================================================================= -->
+  <main id="panel-report" class="flex-1 pb-16">
+    
+    <!-- Hero Section -->
+    <section class="bg-white border-b border-slate-200 pt-10 pb-12 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-5xl mx-auto text-center space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          MUNICIPAL CIVIC INTELLIGENCE ENGINE
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+          Intelligent Civic Operations & Infrastructure Resolution
+        </h1>
+        <p class="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto">
+          Report road potholes, sanitation hazards, and broken streetlights in seconds. Civora's AI automatically categorizes defects, verifies authenticity, and dispatches municipal response teams.
+        </p>
 
-    <!-- ============================================================= -->
-    <!-- PANEL 1: CITIZEN REPORTING FLOW -->
-    <!-- ============================================================= -->
-    <section id="panel-report" class="space-y-6">
-      
-      <!-- Banner / Subheading -->
-      <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-sm">
-        <div class="max-w-2xl">
-          <span class="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold tracking-wide uppercase text-blue-200 mb-3">
-            Mobile-First Public Reporting
-          </span>
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Report Infrastructure Issues in Seconds</h1>
-          <p class="mt-2 text-sm text-blue-100 leading-relaxed">
-            Upload a photo of a pothole, overflow of garbage, or damaged streetlight. Our fine-tuned YOLOv8 Computer Vision model instantly screens authenticity, classifies the issue, and alerts the maintenance department.
+        <!-- Live Metrics Bar -->
+        <div class="pt-4 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-slate-500 font-medium">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> 100% Real-Time Geotagging</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Edge YOLOv8 Detection</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> Calibrated Authenticity Check</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span> 50m Spatial Deduplication</span>
+        </div>
+
+        <div class="pt-2 flex items-center justify-center gap-3">
+          <a href="#reporting-workflow" class="px-5 py-2.5 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition flex items-center gap-2">
+            <span>Report an Incident Now</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+          </a>
+          <button onclick="App.switchTab('my-reports')" class="px-5 py-2.5 rounded-lg text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition">
+            Track My Submissions
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div class="text-center mb-8">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Resolution Process</h2>
+        <p class="text-lg font-bold text-slate-900">How Civora Resolves Urban Defects</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Step 1 -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200/80 shadow-xs relative">
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm mb-4 border border-blue-200">
+            1
+          </div>
+          <h3 class="font-bold text-slate-900 text-sm mb-1">Snap & Geotag</h3>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            Take a photo on-site or upload an image. Your mobile browser pins exact GPS coordinates on OpenStreetMap.
+          </p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200/80 shadow-xs relative">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-sm mb-4 border border-indigo-200">
+            2
+          </div>
+          <h3 class="font-bold text-slate-900 text-sm mb-1">AI Diagnostics & Screening</h3>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            Fine-tuned YOLOv8 detects potholes, garbage, or damaged streetlights. Calibrated AI screens ensure genuine reports.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200/80 shadow-xs relative">
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-sm mb-4 border border-emerald-200">
+            3
+          </div>
+          <h3 class="font-bold text-slate-900 text-sm mb-1">Municipal Resolution</h3>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            Issue is deduplicated, assigned to departmental field engineers, and verified with photographic proof.
           </p>
         </div>
       </div>
+    </section>
 
-      <!-- Report Form Grid -->
-      <form id="report-form" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- Multi-Step Citizen Reporting Experience -->
+    <section id="reporting-workflow" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
         
-        <!-- Left Column: Photo & AI Verification -->
-        <div class="lg:col-span-6 space-y-4">
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-            <h2 class="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
-              <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              Step 1: Capture or Upload Issue Photo
-            </h2>
-            <p class="text-xs text-slate-500 mb-4">Supported issues: Potholes, Garbage Accumulation, Damaged Streetlights.</p>
-
-            <!-- Upload Area -->
-            <div id="image-drop-zone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-50/50 relative">
-              
-              <div id="upload-prompt" class="space-y-3">
-                <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 mx-auto flex items-center justify-center">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                </div>
-                <div>
-                  <label for="image-file-input" class="cursor-pointer text-sm font-semibold text-blue-600 hover:text-blue-700 block">
-                    Click to browse or take camera photo
-                  </label>
-                  <p class="text-xs text-slate-400 mt-1">JPEG, PNG, WebP up to 10 MB</p>
-                </div>
-                <input id="image-file-input" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" class="hidden" aria-label="Upload civic issue photograph">
-              </div>
-
-              <!-- Preview State with Bounding Box Overlay -->
-              <div id="preview-container" class="hidden relative bbox-container w-full overflow-hidden rounded-lg border border-slate-200">
-                <img id="report-img-preview" src="#" alt="Citizen Issue Preview" class="w-full max-h-72 object-contain bg-slate-900 rounded-lg">
-                <div id="bbox-overlay" class="absolute inset-0 pointer-events-none" aria-hidden="true"></div>
-                <div class="absolute top-2 right-2 flex items-center gap-1.5 z-20">
-                  <button type="button" id="replace-img-btn" title="Change photo" class="bg-black/70 hover:bg-black text-white px-2.5 py-1 rounded-full text-xs font-medium transition backdrop-blur-xs flex items-center gap-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                    <span>Change</span>
-                  </button>
-                  <button type="button" id="remove-img-btn" title="Remove photo" aria-label="Remove photo" class="bg-black/70 hover:bg-black text-white p-1 rounded-full text-xs transition backdrop-blur-xs">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- AI Live Feedback Card (Appears after submission / AI screening) -->
-            <div id="ai-preview-card" class="hidden mt-4 bg-slate-900 text-white rounded-xl p-4 space-y-3.5" role="region" aria-live="polite" aria-label="AI Analysis Results">
-              
-              <!-- Section 1: YOLO Civic Issue Detection -->
-              <div class="space-y-2">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
-                    Civic Hazard Detection (YOLOv8)
-                  </span>
-                  <span id="ai-det-count" class="text-[11px] text-slate-400 font-mono">1 object detected</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 text-center bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60">
-                  <div>
-                    <div class="text-[10px] text-slate-400 uppercase font-semibold">Classification</div>
-                    <div id="ai-res-category" class="text-sm font-extrabold text-blue-300 mt-0.5">-</div>
-                  </div>
-                  <div>
-                    <div class="text-[10px] text-slate-400 uppercase font-semibold">AI Confidence</div>
-                    <div id="ai-res-confidence" class="text-sm font-extrabold text-emerald-400 mt-0.5">-</div>
-                  </div>
-                  <div>
-                    <div class="text-[10px] text-slate-400 uppercase font-semibold">Severity Score</div>
-                    <div id="ai-res-severity" class="text-sm font-extrabold text-amber-400 mt-0.5">-</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Section 2: Image Authenticity & Screening -->
-              <div class="border-t border-slate-800 pt-3 space-y-1.5">
-                <div class="flex items-center justify-between">
-                  <span class="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                    Authenticity Verification
-                  </span>
-                  <span id="ai-res-auth" class="text-xs font-semibold px-2.5 py-0.5 rounded-full"></span>
-                </div>
-                <p id="ai-res-auth-explanation" class="text-xs text-slate-300 leading-relaxed"></p>
-              </div>
-
-              <!-- Section 3: Duplicate Clustering Status -->
-              <div id="ai-res-linked" class="hidden text-xs text-amber-200 bg-amber-950/70 p-2.5 rounded-lg border border-amber-800/80 flex items-start gap-2">
-                <svg class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <span id="ai-res-linked-text"></span>
-              </div>
-
-            </div>
-
+        <!-- Workflow Header -->
+        <div class="px-6 py-5 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Citizen Service Portal</span>
+            <h2 class="text-lg font-extrabold text-slate-900">Submit a Public Infrastructure Incident</h2>
           </div>
-
-          <!-- Description and Remarks -->
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Optional Notes / Remarks</label>
-            <textarea id="report-desc" rows="2" placeholder="e.g., Near library entrance, hazardous at night..." class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+          <div class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            Automated Triage Active
           </div>
         </div>
 
-        <!-- Right Column: Location Map & Submit -->
-        <div class="lg:col-span-6 space-y-4">
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col h-full">
-            <div class="flex items-center justify-between mb-3">
-              <div>
-                <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  Step 2: Pinpoint Geolocation
-                </h2>
-                <p class="text-xs text-slate-500">Drag map pin to refine location if needed.</p>
+        <form id="report-form" class="p-6 sm:p-8 space-y-8" onsubmit="Citizen.submitReport(event)">
+          
+          <!-- Step 1: Upload or Capture Media -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                Step 1: Capture or Upload Issue Photo
+              </label>
+              <span class="text-[11px] text-slate-400">Max size 10MB • JPEG, PNG, WebP</span>
+            </div>
+
+            <!-- Upload Area & File Input -->
+            <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-50/50 hover:bg-blue-50/30 relative">
+              <input type="file" id="image-input" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="Citizen.handleFileSelect(event)">
+              
+              <div id="drop-placeholder" class="space-y-2 pointer-events-none">
+                <div class="w-12 h-12 mx-auto rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+                <p class="text-xs font-semibold text-slate-800">Drag and drop photo here, or <span class="text-blue-600 underline">browse files</span></p>
+                <p class="text-[11px] text-slate-400">Tap to use device camera directly on mobile phones</p>
               </div>
-              <button type="button" id="locate-me-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg transition">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Auto-Detect GPS
+
+              <!-- Image Preview Container with Bounding Box Canvas -->
+              <div id="preview-wrapper" class="hidden relative inline-block max-w-full">
+                <div id="bbox-container" class="bbox-container">
+                  <img id="image-preview" src="#" alt="Civic Hazard Preview" class="max-h-72 rounded-lg object-contain mx-auto border border-slate-200 shadow-xs" />
+                  <canvas id="bbox-canvas" class="absolute inset-0 pointer-events-none w-full h-full"></canvas>
+                </div>
+                <div class="mt-3 flex items-center justify-center gap-3">
+                  <button type="button" onclick="Citizen.resetImage()" class="px-3 py-1 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition z-20">
+                    Replace Photo
+                  </button>
+                  <span id="file-meta" class="text-xs text-slate-500 font-mono"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Location Confirmation via Leaflet Map -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                Verify Precise Geospatial Location
+              </label>
+              <button type="button" onclick="Citizen.locateUser()" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Locate Me (GPS)
               </button>
             </div>
 
             <!-- Leaflet Map Container -->
-            <div class="relative flex-1 min-h-[260px] rounded-xl overflow-hidden border border-slate-200">
-              <div id="report-map"></div>
+            <div class="relative rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+              <div id="report-map" style="height: 280px;"></div>
+              
+              <div class="absolute bottom-2 left-2 z-[400] bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-lg border border-slate-200 shadow-xs text-[11px] text-slate-600 font-mono">
+                Pin: <span id="selected-coords" class="font-bold text-slate-900">28.6139, 77.2090</span>
+              </div>
             </div>
 
-            <!-- GPS Details & Address -->
-            <div class="mt-4 space-y-3">
-              <div class="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span class="text-slate-500 font-medium">Selected Coordinates:</span>
-                <span id="selected-coords" class="font-mono font-semibold text-slate-800">28.61390, 77.20900</span>
-              </div>
-
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Landmark / Street Address</label>
-                <input id="report-address" type="text" placeholder="e.g., Block B, Academic Area or Sector 12" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-              </div>
-
-              <button type="submit" id="submit-report-btn" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Submit Report with AI Validation
-              </button>
-            </div>
-
-          </div>
-        </div>
-
-      </form>
-    </section>
-
-    <!-- ============================================================= -->
-    <!-- PANEL 2: MY SUBMISSIONS & TRACKING -->
-    <!-- ============================================================= -->
-    <section id="panel-my-reports" class="hidden space-y-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-xl font-extrabold text-slate-900">My Submitted Reports</h2>
-          <p class="text-xs text-slate-500 mt-1">Track verification, maintenance progress, and authority resolution evidence.</p>
-        </div>
-        <button onclick="Citizen.loadMyReports()" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs">
-          Refresh List
-        </button>
-      </div>
-
-      <div id="my-reports-list" class="space-y-4">
-        <!-- Injected via citizen.js -->
-      </div>
-
-      <div id="my-reports-empty" class="hidden text-center py-12 bg-white rounded-2xl border border-slate-200 p-8">
-        <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400 mb-3">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-        </div>
-        <h3 class="text-sm font-bold text-slate-800">No Reports Yet</h3>
-        <p class="text-xs text-slate-500 mt-1 mb-4">When you submit an issue, its status and resolution proof will appear here.</p>
-        <button onclick="App.switchTab('report')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg">Submit Your First Report</button>
-      </div>
-    </section>
-
-    <!-- ============================================================= -->
-    <!-- PANEL 3: ADMIN & AUTHORITY TRIAGE PORTAL -->
-    <!-- ============================================================= -->
-    <section id="panel-admin" class="hidden space-y-6">
-      
-      <!-- Auth Warning if not signed in as Admin -->
-      <div id="admin-auth-warning" class="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center max-w-lg mx-auto">
-        <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 mx-auto flex items-center justify-center mb-3">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-        </div>
-        <h3 class="text-base font-bold text-amber-900">Administrator Access Required</h3>
-        <p class="text-xs text-amber-700 mt-1 mb-4">You must sign in with an authority or facility admin account to view metrics, assign workers, and resolve issues.</p>
-        <button onclick="Auth.openModal('login')" class="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl shadow-xs">
-          Sign In as Admin
-        </button>
-        <div class="mt-4 text-[11px] text-amber-600">
-          Demo Admin Credentials: <span class="font-mono font-bold">admin@civora.org</span> / <span class="font-mono font-bold">admin123</span>
-        </div>
-      </div>
-
-      <!-- Admin Content (Visible when authenticated) -->
-      <div id="admin-content" class="space-y-6">
-        
-        <!-- KPI Metrics Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Issues</div>
-            <div id="stat-total-issues" class="text-2xl font-black text-slate-900 mt-1">0</div>
-          </div>
-
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Citizen Reports</div>
-            <div id="stat-total-reports" class="text-2xl font-black text-blue-600 mt-1">0</div>
-          </div>
-
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Dupes Merged</div>
-            <div id="stat-dupes-prevented" class="text-2xl font-black text-indigo-600 mt-1">0</div>
-          </div>
-
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Critical/High</div>
-            <div id="stat-critical-count" class="text-2xl font-black text-rose-600 mt-1">0</div>
-          </div>
-
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pending</div>
-            <div id="stat-pending-count" class="text-2xl font-black text-amber-600 mt-1">0</div>
-          </div>
-
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Resolved</div>
-            <div id="stat-resolved-count" class="text-2xl font-black text-emerald-600 mt-1">0</div>
-          </div>
-
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Avg Res. Time</div>
-            <div id="stat-avg-hours" class="text-2xl font-black text-slate-700 mt-1">-</div>
-          </div>
-
-        </div>
-
-        <!-- Campus/City Map View -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-          <div class="flex items-center justify-between">
+            <!-- Address Input -->
             <div>
-              <h3 class="font-bold text-slate-900 text-sm">Geospatial Issue Distribution</h3>
-              <p class="text-xs text-slate-500">Live view of pins colored by urgency (Red = Critical, Yellow = Medium, Green = Resolved).</p>
-            </div>
-            <button onclick="Admin.loadMapMarkers()" class="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">Refresh Map</button>
-          </div>
-          <div class="h-72 w-full rounded-xl overflow-hidden border border-slate-200">
-            <div id="admin-map"></div>
-          </div>
-        </div>
-
-        <!-- Issues Triage Table -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          
-          <!-- Filters & Search Toolbar -->
-          <div class="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-wrap gap-3 items-center justify-between">
-            <div class="flex-1 min-w-[200px]">
-              <input id="filter-search" type="text" placeholder="Search by issue title, landmark..." class="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 bg-white">
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-              <select id="filter-status" class="text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white">
-                <option value="">All Statuses</option>
-                <option value="REPORTED">REPORTED</option>
-                <option value="PENDING">PENDING</option>
-                <option value="ASSIGNED">ASSIGNED</option>
-                <option value="IN_PROGRESS">IN PROGRESS</option>
-                <option value="RESOLVED">RESOLVED</option>
-              </select>
-
-              <select id="filter-category" class="text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white">
-                <option value="">All Categories</option>
-                <option value="pothole">Pothole</option>
-                <option value="garbage">Garbage</option>
-                <option value="damaged_streetlight">Damaged Streetlight</option>
-              </select>
-
-              <select id="filter-priority" class="text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white">
-                <option value="">All Priorities</option>
-                <option value="CRITICAL">CRITICAL</option>
-                <option value="HIGH">HIGH</option>
-                <option value="MEDIUM">MEDIUM</option>
-                <option value="LOW">LOW</option>
-              </select>
+              <label for="address-input" class="block text-xs font-medium text-slate-600 mb-1">Street Address or Landmark (Optional)</label>
+              <input type="text" id="address-input" placeholder="e.g. Near Connaught Place, Block B, New Delhi" class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" />
             </div>
           </div>
 
-          <!-- Table -->
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr class="bg-slate-100/75 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200">
-                  <th class="py-3 px-4">ID</th>
-                  <th class="py-3 px-4">Problem / Location</th>
-                  <th class="py-3 px-4">Category</th>
-                  <th class="py-3 px-4">Priority</th>
-                  <th class="py-3 px-4">Reports</th>
-                  <th class="py-3 px-4">Status</th>
-                  <th class="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="admin-issues-table-body" class="divide-y divide-slate-100">
-                <!-- Injected via admin.js -->
-              </tbody>
-            </table>
+          <!-- Step 3: AI Diagnostic Feedback & Authenticity Transparency -->
+          <div id="ai-diagnostic-card" class="hidden p-5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200/80 pb-3">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                  AI
+                </div>
+                <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Automated Diagnostic Assessment</span>
+              </div>
+              <span id="ai-status-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Processed
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Civic Detection Details -->
+              <div class="bg-white p-3.5 rounded-lg border border-slate-200/80 shadow-xs space-y-1.5">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Civic Hazard Classification</span>
+                <div class="flex items-center justify-between">
+                  <span id="diag-category" class="font-extrabold text-sm text-slate-900">Pothole</span>
+                  <span id="diag-confidence" class="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">94.8% conf</span>
+                </div>
+                <p id="diag-category-desc" class="text-[11px] text-slate-500 leading-tight">Detected via fine-tuned YOLOv8 road defect weights.</p>
+              </div>
+
+              <!-- Authenticity Screening -->
+              <div class="bg-white p-3.5 rounded-lg border border-slate-200/80 shadow-xs space-y-1.5">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Image Authenticity Verification</span>
+                <div class="flex items-center justify-between">
+                  <span id="diag-authenticity" class="font-extrabold text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    LIKELY_AUTHENTIC
+                  </span>
+                  <span id="diag-auth-score" class="text-xs font-mono text-slate-500">Score: 0.92</span>
+                </div>
+                <p id="diag-auth-explanation" class="text-[11px] text-slate-500 leading-tight">Image exhibits natural optical grain and environmental sensor noise.</p>
+              </div>
+            </div>
           </div>
 
-        </div>
+          <!-- Step 4: Description / Context -->
+          <div class="space-y-2">
+            <label for="desc-input" class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+              Incident Details & Citizen Observations (Optional)
+            </label>
+            <textarea id="desc-input" rows="3" placeholder="Provide any additional context (e.g. hazard causing traffic slowdown, exposed wiring danger, deep crater during rainfall)..." class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"></textarea>
+          </div>
 
+          <!-- Submit Button & Submission Progress -->
+          <div class="pt-2">
+            <div id="submit-progress" class="hidden mb-3">
+              <div class="flex justify-between text-xs text-slate-500 font-medium mb-1">
+                <span>Analyzing image & uploading report...</span>
+                <span id="submit-percentage">60%</span>
+              </div>
+              <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                <div id="progress-bar-fill" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 60%"></div>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-submit-report" class="w-full py-3 px-4 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition flex items-center justify-center gap-2">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span>Submit Report for Municipal Resolution</span>
+            </button>
+          </div>
+        </form>
       </div>
-
     </section>
 
-    <!-- ============================================================= -->
-    <!-- PANEL 4: ABOUT CIVORA, SDGS & ARCHITECTURE -->
-    <!-- ============================================================= -->
-    <section id="panel-about" class="hidden space-y-6 max-w-4xl mx-auto">
-      
-      <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-        <div>
-          <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">Master Project Blueprint</span>
-          <h2 class="text-2xl font-black text-slate-900 mt-1">About Civora AI Platform</h2>
-          <p class="text-sm text-slate-600 mt-2 leading-relaxed">
-            Civora is an AI-powered civic infrastructure issue management platform engineered to solve the disconnect between citizen observations and actionable municipal maintenance tasks.
-          </p>
-        </div>
-
-        <!-- UN Sustainable Development Goals Alignment -->
-        <div class="border-t pt-6">
-          <h3 class="font-bold text-slate-900 text-sm mb-3">Aligned UN Sustainable Development Goals (SDGs)</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="p-4 rounded-xl bg-amber-50/70 border border-amber-200">
-              <span class="text-xs font-black text-amber-800">SDG 11: Sustainable Cities & Communities</span>
-              <p class="text-xs text-amber-900/80 mt-1">
-                Fosters safe, resilient, and inclusive communities through proactive road maintenance, prompt sanitation management, and functional public lighting.
-              </p>
-            </div>
-            <div class="p-4 rounded-xl bg-blue-50/70 border border-blue-200">
-              <span class="text-xs font-black text-blue-800">SDG 9: Industry, Innovation & Infrastructure</span>
-              <p class="text-xs text-blue-900/80 mt-1">
-                Applies edge-ready computer vision, geospatial clustering, and automated prioritization algorithms to modernize public infrastructure upkeep.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Technical Model Specs -->
-        <div class="border-t pt-6">
-          <h3 class="font-bold text-slate-900 text-sm mb-3">AI & Computer Vision Core</h3>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <div class="text-[10px] text-slate-500 font-bold uppercase">Model Architecture</div>
-              <div class="text-sm font-extrabold text-slate-900 mt-1">YOLOv8 Nano</div>
-            </div>
-            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <div class="text-[10px] text-slate-500 font-bold uppercase">mAP@50 Metric</div>
-              <div class="text-sm font-extrabold text-emerald-600 mt-1">0.759 (75.9%)</div>
-            </div>
-            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <div class="text-[10px] text-slate-500 font-bold uppercase">mAP@50-95 Metric</div>
-              <div class="text-sm font-extrabold text-blue-600 mt-1">0.601 (60.1%)</div>
-            </div>
-            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <div class="text-[10px] text-slate-500 font-bold uppercase">Authenticity Guard</div>
-              <div class="text-sm font-extrabold text-indigo-600 mt-1">HF Synthetic Filter</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Priority Formula -->
-        <div class="border-t pt-6">
-          <h3 class="font-bold text-slate-900 text-sm mb-2">Smart Prioritization Rule Formula</h3>
-          <p class="text-xs text-slate-600 mb-3">
-            In compliance with Section 8 & 13 of the project blueprint, priority is calculated using transparent backend business logic:
-          </p>
-          <div class="p-4 bg-slate-900 text-slate-200 rounded-xl font-mono text-xs overflow-x-auto">
-            Priority Score = (Severity × 0.5) + (Category Hazard × 0.3) + (Report Count × 6) + Aging Factor
-          </div>
-        </div>
-
+    <!-- Supported Hazard Categories Showcase -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+      <div class="text-center mb-8">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Supported Infrastructure Hazards</h2>
+        <p class="text-lg font-bold text-slate-900">Automated Edge Vision Categories</p>
       </div>
 
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="p-5 rounded-xl border border-slate-200 bg-white shadow-xs space-y-2">
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xs border border-amber-200">
+            POT
+          </div>
+          <h3 class="font-bold text-slate-900 text-sm">Road Cavities & Potholes</h3>
+          <p class="text-xs text-slate-500">Deep asphalt fractures, manhole subsidence, and vehicular road hazards.</p>
+          <span class="inline-block text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">Dept of Public Works</span>
+        </div>
+
+        <div class="p-5 rounded-xl border border-slate-200 bg-white shadow-xs space-y-2">
+          <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center font-bold text-xs border border-rose-200">
+            GAR
+          </div>
+          <h3 class="font-bold text-slate-900 text-sm">Illegal Garbage & Sanitation</h3>
+          <p class="text-xs text-slate-500">Uncollected municipal waste, hazardous dumping, and blocked drainage.</p>
+          <span class="inline-block text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">Waste Management Div</span>
+        </div>
+
+        <div class="p-5 rounded-xl border border-slate-200 bg-white shadow-xs space-y-2">
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200">
+            LGT
+          </div>
+          <h3 class="font-bold text-slate-900 text-sm">Damaged Public Streetlights</h3>
+          <p class="text-xs text-slate-500">Non-operational poles, shattered luminaires, and exposed electrical hazards.</p>
+          <span class="inline-block text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">Electrical Utility Bureau</span>
+        </div>
+      </div>
     </section>
 
   </main>
 
-  <!-- ============================================================= -->
-  <!-- SLIDE-OVER DRAWER: ISSUE DETAILS & TRIAGE -->
-  <!-- ============================================================= -->
-  <div id="issue-detail-drawer" class="fixed inset-0 z-50 overflow-hidden hidden">
-    <div class="absolute inset-0 bg-black/40 backdrop-blur-xs transition-opacity" onclick="Admin.closeDrawer()"></div>
+  <!-- ========================================================================= -->
+  <!-- TAB 2: CITIZEN MY SUBMISSIONS TRACKING                                    -->
+  <!-- ========================================================================= -->
+  <main id="panel-my-reports" class="hidden flex-1 pb-16">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      
+      <!-- Page Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-extrabold text-slate-900">My Incident Submissions</h1>
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700" id="citizen-report-count">0</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Real-time resolution status and field proof for your submitted infrastructure issues.</p>
+        </div>
+        <button onclick="App.switchTab('report')" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-xs transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          <span>Report New Hazard</span>
+        </button>
+      </div>
+
+      <!-- Reports Feed Container -->
+      <div id="my-reports-list" class="space-y-4">
+        <!-- Rendered dynamically by Citizen.loadMyReports() -->
+        <div class="p-8 text-center bg-white rounded-xl border border-slate-200 text-slate-400 text-xs">
+          Loading your incident history...
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- TAB 3: ADMIN OPERATIONS DASHBOARD (SAAS DESIGN INSPIRATION)               -->
+  <!-- ========================================================================= -->
+  <div id="panel-admin" class="hidden flex-1 flex flex-col md:flex-row min-h-0 bg-[#F8FAFC]">
     
-    <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
-      <div class="w-screen max-w-md bg-white shadow-2xl flex flex-col">
-        <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <span class="font-bold text-slate-800 text-sm">Issue Management & Triage</span>
-          <button onclick="Admin.closeDrawer()" class="p-1 rounded-md text-slate-400 hover:text-slate-600">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+    <!-- Admin Auth Warning Banner if citizen or not logged in -->
+    <div id="admin-auth-warning" class="hidden w-full p-8 text-center max-w-md mx-auto my-auto space-y-4">
+      <div class="w-12 h-12 mx-auto rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+      </div>
+      <h2 class="text-base font-bold text-slate-900">Administrator Credentials Required</h2>
+      <p class="text-xs text-slate-500">Sign in with an administrative municipal account to inspect the live operations triage console.</p>
+      <button onclick="Auth.openModal()" class="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition">
+        Sign In as Administrator
+      </button>
+    </div>
+
+    <!-- Admin Operational Shell -->
+    <div id="admin-content" class="flex-1 flex flex-col md:flex-row min-h-0">
+      
+      <!-- FIXED LEFT SIDEBAR NAVIGATION -->
+      <aside class="w-full md:w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
+        
+        <!-- Sidebar Brand -->
+        <div class="p-5 border-b border-slate-200/80 flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white font-black text-sm">
+            C
+          </div>
+          <div>
+            <span class="font-extrabold text-sm tracking-tight text-slate-900">Civora Ops</span>
+            <p class="text-[10px] text-slate-400 font-medium">Municipal Control Console</p>
+          </div>
         </div>
 
-        <div id="drawer-content" class="flex-1 overflow-y-auto p-5">
-          <!-- Injected via admin.js -->
+        <!-- Sidebar Navigation Groups -->
+        <nav class="flex-1 p-3 space-y-6 overflow-y-auto text-xs">
+          
+          <!-- WORKSPACE -->
+          <div>
+            <div class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Workspace
+            </div>
+            <div class="space-y-0.5">
+              <button onclick="Admin.switchSubView('overview')" id="admin-nav-overview" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-semibold bg-slate-100 text-slate-900 transition">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                <span>Overview</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- OPERATIONS -->
+          <div>
+            <div class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Operations
+            </div>
+            <div class="space-y-0.5">
+              <button onclick="Admin.switchSubView('live-map')" id="admin-nav-live-map" class="w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+                <div class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                  <span>Live Map</span>
+                </div>
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              </button>
+
+              <button onclick="Admin.switchSubView('reports')" id="admin-nav-reports" class="w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+                <div class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                  <span>Citizen Reports</span>
+                </div>
+                <span id="badge-sidebar-reports" class="text-[10px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded">0</span>
+              </button>
+
+              <button onclick="Admin.switchSubView('issues')" id="admin-nav-issues" class="w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+                <div class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  <span>Active Issues</span>
+                </div>
+                <span id="badge-sidebar-issues" class="text-[10px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded">0</span>
+              </button>
+
+              <button onclick="Admin.switchSubView('work-orders')" id="admin-nav-work-orders" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                <span>Work Orders</span>
+              </button>
+
+              <button onclick="Admin.switchSubView('alerts')" id="admin-nav-alerts" class="w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+                <div class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                  <span>Alerts & SLA</span>
+                </div>
+                <span id="badge-sidebar-critical" class="text-[10px] font-mono text-rose-700 bg-rose-50 border border-rose-200 font-bold px-1.5 py-0.5 rounded">0</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- MANAGEMENT -->
+          <div>
+            <div class="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Management
+            </div>
+            <div class="space-y-0.5">
+              <button onclick="Admin.switchSubView('analytics')" id="admin-nav-analytics" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                <span>Analytics & KPI</span>
+              </button>
+
+              <button onclick="Admin.switchSubView('team')" id="admin-nav-team" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                <span>Team & Roster</span>
+              </button>
+
+              <button onclick="Admin.switchSubView('settings')" id="admin-nav-settings" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                <span>Settings</span>
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <!-- Sidebar Operator Profile Card -->
+        <div class="p-3 border-t border-slate-200/80 bg-slate-50/50 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs" id="admin-operator-avatar">
+              OP
+            </div>
+            <div>
+              <div class="text-xs font-bold text-slate-900 leading-tight" id="admin-operator-name">Municipal Admin</div>
+              <div class="text-[10px] text-slate-400">Operations Control</div>
+            </div>
+          </div>
+          <button onclick="Auth.logout()" class="text-slate-400 hover:text-rose-600 transition p-1.5 rounded" title="Sign Out">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+          </button>
         </div>
+      </aside>
+
+      <!-- ADMIN MAIN VIEWPORT -->
+      <div class="flex-1 flex flex-col min-h-0 overflow-y-auto">
+        
+        <!-- Admin Top Navigation Bar -->
+        <header class="bg-white border-b border-slate-200/80 px-6 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-20">
+          <div>
+            <h2 id="admin-page-title" class="text-base font-extrabold text-slate-900">Operations Overview</h2>
+            <p id="admin-page-desc" class="text-[11px] text-slate-500">Real-time civic intelligence, incoming incident triage & spatial dispatch</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="relative hidden sm:block">
+              <input type="text" id="admin-global-search" oninput="Admin.handleSearch(event)" placeholder="Search issues, address, or ID..." class="w-56 pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500" />
+              <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
+
+            <button onclick="Admin.loadDashboard()" class="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition" title="Refresh Live Data">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            </button>
+          </div>
+        </header>
+
+        <!-- ADMIN SUB-VIEW 1: OVERVIEW -->
+        <div id="subview-overview" class="p-6 space-y-6">
+          
+          <!-- SECTION 1: "NEEDS ATTENTION" ALERT BAR -->
+          <div id="needs-attention-bar" class="p-4 rounded-xl bg-amber-50/80 border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-amber-900 flex items-center gap-2">
+                  <span>OPERATIONAL TRIAGE REQUIRED</span>
+                  <span id="attention-critical-count" class="px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 font-mono text-[10px]">0 CRITICAL</span>
+                </div>
+                <p id="attention-summary-text" class="text-[11px] text-amber-800">
+                  Multiple civic incidents are awaiting technician dispatch and triage review.
+                </p>
+              </div>
+            </div>
+            <button onclick="Admin.filterUnassigned()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition shrink-0 shadow-xs">
+              View Unassigned
+            </button>
+          </div>
+
+          <!-- SECTION 2: KPI SUMMARY CARDS (REAL BACKEND METRICS) -->
+          <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
+            <!-- Open Issues -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Issues</span>
+              <div class="text-2xl font-extrabold text-slate-900 mt-1" id="stat-total-issues">0</div>
+              <span class="text-[10px] text-slate-500 font-medium">Clustered Parent Incidents</span>
+            </div>
+
+            <!-- Unassigned / Pending -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
+              <span class="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">Pending Triage</span>
+              <div class="text-2xl font-extrabold text-amber-600 mt-1" id="stat-pending-count">0</div>
+              <span class="text-[10px] text-slate-500 font-medium">Awaiting Assignment</span>
+            </div>
+
+            <!-- Critical -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
+              <span class="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Critical Hazards</span>
+              <div class="text-2xl font-extrabold text-rose-600 mt-1" id="stat-critical-count">0</div>
+              <span class="text-[10px] text-slate-500 font-medium">Immediate Hazard Priority</span>
+            </div>
+
+            <!-- Total Citizen Reports -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Submissions</span>
+              <div class="text-2xl font-extrabold text-slate-900 mt-1" id="stat-total-reports">0</div>
+              <span class="text-[10px] text-slate-500 font-medium">Citizen Ingested Reports</span>
+            </div>
+
+            <!-- Duplicates Prevented -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
+              <span class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">Deduped</span>
+              <div class="text-2xl font-extrabold text-indigo-600 mt-1" id="stat-dupes-prevented">0</div>
+              <span class="text-[10px] text-slate-500 font-medium">50m Spatial Radius</span>
+            </div>
+
+            <!-- Avg Resolution Time -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
+              <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Avg Resolution</span>
+              <div class="text-2xl font-extrabold text-emerald-600 mt-1" id="stat-avg-hours">N/A</div>
+              <span class="text-[10px] text-slate-500 font-medium">Dispatched to Closed</span>
+            </div>
+          </div>
+
+          <!-- SECTION 3: SPLIT OPERATIONS AREA (HIGH-PRIORITY LIST & INTERACTIVE MAP) -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left: High-Priority Issues Triage List (5 Cols) -->
+            <div class="lg:col-span-5 bg-white rounded-xl border border-slate-200/80 shadow-card flex flex-col overflow-hidden">
+              <div class="px-5 py-3.5 border-b border-slate-200/80 flex items-center justify-between">
+                <div>
+                  <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Priority Triage Queue</h3>
+                  <p class="text-[10px] text-slate-400">High & Critical civic safety risks</p>
+                </div>
+                <span class="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded" id="priority-queue-count">0 items</span>
+              </div>
+
+              <!-- List Container -->
+              <div id="high-priority-list" class="divide-y divide-slate-100 overflow-y-auto max-h-[380px] p-2 space-y-1">
+                <!-- Dynamically populated by Admin.renderPriorityList() -->
+                <div class="p-6 text-center text-xs text-slate-400">Loading priority queue...</div>
+              </div>
+            </div>
+
+            <!-- Right: Live Civic Issue Map with Priority Markers & Legend (7 Cols) -->
+            <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200/80 shadow-card p-3 flex flex-col">
+              <div class="px-2 py-1.5 flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span class="text-xs font-bold text-slate-900 uppercase tracking-wider">Geospatial Operations Map</span>
+                </div>
+                <!-- Map Legend -->
+                <div class="flex items-center gap-3 text-[10px] font-medium text-slate-500">
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-600"></span> Critical</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500"></span> High</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Medium</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Low</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Resolved</span>
+                </div>
+              </div>
+
+              <!-- Map Container -->
+              <div class="flex-1 min-h-[340px] rounded-lg overflow-hidden border border-slate-200">
+                <div id="admin-map" style="height: 100%; min-height: 340px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 4: RECENT ISSUES & DATA TABLE -->
+          <div class="bg-white rounded-xl border border-slate-200/80 shadow-card overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Recent Operational Issues</h3>
+                <p class="text-[10px] text-slate-400">All registered municipal hazards and spatial clusters</p>
+              </div>
+
+              <!-- Filters -->
+              <div class="flex flex-wrap items-center gap-2">
+                <select id="filter-category" onchange="Admin.applyFilters()" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700">
+                  <option value="ALL">All Categories</option>
+                  <option value="pothole">Pothole</option>
+                  <option value="garbage">Garbage</option>
+                  <option value="damaged_streetlight">Streetlight</option>
+                </select>
+
+                <select id="filter-status" onchange="Admin.applyFilters()" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700">
+                  <option value="ALL">All Statuses</option>
+                  <option value="REPORTED">REPORTED</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="ASSIGNED">ASSIGNED</option>
+                  <option value="IN_PROGRESS">IN_PROGRESS</option>
+                  <option value="RESOLVED">RESOLVED</option>
+                </select>
+
+                <select id="filter-priority" onchange="Admin.applyFilters()" class="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700">
+                  <option value="ALL">All Priorities</option>
+                  <option value="CRITICAL">Critical</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50/70 border-b border-slate-200/80 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th class="px-6 py-3">Issue ID</th>
+                    <th class="px-4 py-3">Category</th>
+                    <th class="px-4 py-3">Location & Address</th>
+                    <th class="px-4 py-3">Priority</th>
+                    <th class="px-4 py-3">Status</th>
+                    <th class="px-4 py-3">Submissions</th>
+                    <th class="px-4 py-3">Age</th>
+                    <th class="px-6 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="issues-table-body" class="divide-y divide-slate-100 text-slate-700">
+                  <!-- Populated dynamically by Admin.renderIssuesTable() -->
+                  <tr>
+                    <td colspan="8" class="px-6 py-8 text-center text-slate-400">Loading issues...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Table Pagination -->
+            <div class="px-6 py-3 border-t border-slate-200/80 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
+              <span id="pagination-info">Showing 0-0 of 0 issues</span>
+              <div class="flex items-center gap-2">
+                <button id="btn-prev-page" onclick="Admin.prevPage()" class="px-2.5 py-1 rounded border border-slate-200 hover:bg-white disabled:opacity-40 transition">Previous</button>
+                <button id="btn-next-page" onclick="Admin.nextPage()" class="px-2.5 py-1 rounded border border-slate-200 hover:bg-white disabled:opacity-40 transition">Next</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADMIN SUB-VIEW 2: LIVE MAP FULL SCREEN -->
+        <div id="subview-live-map" class="hidden p-6 space-y-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">Geospatial Operations Canvas</h3>
+                <p class="text-xs text-slate-500">Live coordinates of all registered civic infrastructure defects</p>
+              </div>
+            </div>
+            <div class="h-[650px] rounded-lg overflow-hidden border border-slate-200">
+              <div id="live-full-map" style="height: 100%; min-height: 650px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADMIN SUB-VIEW 3: CITIZEN REPORTS INGEST -->
+        <div id="subview-reports" class="hidden p-6 space-y-4">
+          <div class="bg-white rounded-xl border border-slate-200/80 shadow-card p-6">
+            <h3 class="text-sm font-bold text-slate-900 mb-1">Citizen Submissions Feed</h3>
+            <p class="text-xs text-slate-500 mb-4">Ingested raw citizen reports with AI detections and authenticity flags</p>
+            <div id="all-reports-container" class="space-y-3">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ADMIN SUB-VIEW 4: ACTIVE ISSUES -->
+        <div id="subview-issues" class="hidden p-6 space-y-4">
+          <div class="bg-white rounded-xl border border-slate-200/80 shadow-card p-6">
+            <h3 class="text-sm font-bold text-slate-900 mb-1">Deduplicated Incident Clusters</h3>
+            <p class="text-xs text-slate-500 mb-4">Consolidated physical defects aggregating multiple corroborating citizen reports</p>
+            <div id="active-issues-container" class="space-y-3"></div>
+          </div>
+        </div>
+
+        <!-- ADMIN SUB-VIEW 5: WORK ORDERS -->
+        <div id="subview-work-orders" class="hidden p-6 space-y-4">
+          <div class="bg-white rounded-xl border border-slate-200/80 shadow-card p-6">
+            <h3 class="text-sm font-bold text-slate-900 mb-1">Field Technician Work Orders</h3>
+            <p class="text-xs text-slate-500 mb-4">Dispatched maintenance tasks organized by departmental crew</p>
+            <div id="work-orders-container" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+          </div>
+        </div>
+
+        <!-- ADMIN SUB-VIEW 6: ALERTS & SLA -->
+        <div id="subview-alerts" class="hidden p-6 space-y-4">
+          <div class="bg-white rounded-xl border border-slate-200/80 shadow-card p-6">
+            <h3 class="text-sm font-bold text-slate-900 mb-1">High-Risk Safety Alerts</h3>
+            <p class="text-xs text-slate-500 mb-4">Critical severity hazards requiring emergency municipal containment</p>
+            <div id="alerts-list-container" class="space-y-3"></div>
+          </div>
+        </div>
+
+        <!-- ADMIN SUB-VIEW 7: ANALYTICS & KPI -->
+        <div id="subview-analytics" class="hidden p-6 space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-card">
+              <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Issues by Status</h4>
+              <div id="analytics-status-breakdown" class="space-y-2 text-xs"></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-card">
+              <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Issues by Category</h4>
+              <div id="analytics-category-breakdown" class="space-y-2 text-xs"></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-card">
+              <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Issues by Priority</h4>
+              <div id="analytics-priority-breakdown" class="space-y-2 text-xs"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADMIN SUB-VIEW 8: TEAM & ROSTER -->
+        <div id="subview-team" class="hidden p-6 space-y-4">
+          <div class="bg-white rounded-xl border border-slate-200/80 shadow-card p-6">
+            <h3 class="text-sm font-bold text-slate-900 mb-1">Municipal Department Directory</h3>
+            <p class="text-xs text-slate-500 mb-4">Assigned field maintenance squads & engineering specialists</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div class="p-4 rounded-lg border border-slate-200 bg-slate-50/50 space-y-2">
+                <span class="font-bold text-slate-900">Roads & Highway Maintenance</span>
+                <p class="text-slate-500">Asphalt crews, heavy compaction equipment, pothole patch units.</p>
+                <div class="text-[11px] font-mono text-blue-600 font-semibold">Lead: Eng. Rajiv Verma</div>
+              </div>
+              <div class="p-4 rounded-lg border border-slate-200 bg-slate-50/50 space-y-2">
+                <span class="font-bold text-slate-900">Public Sanitation Bureau</span>
+                <p class="text-slate-500">Refuse removal trucks, recycling squads, hazardous waste containment.</p>
+                <div class="text-[11px] font-mono text-emerald-600 font-semibold">Lead: Supervisor Anita Rao</div>
+              </div>
+              <div class="p-4 rounded-lg border border-slate-200 bg-slate-50/50 space-y-2">
+                <span class="font-bold text-slate-900">Electrical Infrastructure Division</span>
+                <p class="text-slate-500">Streetlight electricians, luminaire replacements, wiring integrity.</p>
+                <div class="text-[11px] font-mono text-amber-600 font-semibold">Lead: Tech. David Chen</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADMIN SUB-VIEW 9: SETTINGS -->
+        <div id="subview-settings" class="hidden p-6 space-y-4">
+          <div class="bg-white rounded-xl border border-slate-200/80 shadow-card p-6 max-w-2xl">
+            <h3 class="text-sm font-bold text-slate-900 mb-1">System Operational Settings</h3>
+            <p class="text-xs text-slate-500 mb-4">Core platform thresholds and AI vision engine configurations</p>
+            <div class="space-y-4 text-xs">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <span class="font-bold text-slate-900 block">YOLOv8 Detection Threshold</span>
+                  <span class="text-slate-500 text-[11px]">Minimum bounding box confidence for automatic triage</span>
+                </div>
+                <span class="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">0.50</span>
+              </div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <span class="font-bold text-slate-900 block">Spatial Deduplication Radius</span>
+                  <span class="text-slate-500 text-[11px]">Haversine spatial window for parent issue clustering</span>
+                </div>
+                <span class="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">50 meters</span>
+              </div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <span class="font-bold text-slate-900 block">Database Storage Mode</span>
+                  <span class="text-slate-500 text-[11px]">High-concurrency SQLite WAL journaling</span>
+                </div>
+                <span class="font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">WAL ACTIVE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 
-  <!-- ============================================================= -->
-  <!-- MODAL: RESOLUTION WITH EVIDENCE PHOTO -->
-  <!-- ============================================================= -->
-  <div id="resolve-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
-    <div class="fixed inset-0 bg-black/50 backdrop-blur-xs" onclick="Admin.closeResolveModal()"></div>
-    
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 relative z-10 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="font-bold text-slate-900 text-base">Close Issue with Resolution Proof</h3>
+  <!-- ========================================================================= -->
+  <!-- SLIDE-OVER DETAIL DRAWER FOR ADMIN ISSUE INSPECTION                       -->
+  <!-- ========================================================================= -->
+  <div id="drawer-backdrop" class="drawer-backdrop fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex justify-end" onclick="Admin.closeDrawer(event)">
+    <div id="issue-detail-drawer" class="slide-drawer w-full max-w-xl bg-white h-full shadow-2xl flex flex-col z-50 overflow-hidden" onclick="event.stopPropagation()">
+      
+      <!-- Drawer Header -->
+      <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span id="drawer-issue-id" class="font-mono font-extrabold text-sm text-slate-900">#ISS-00</span>
+          <span id="drawer-priority-badge" class="badge-priority badge-priority-high">HIGH</span>
+        </div>
+        <button onclick="Admin.closeDrawer()" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <!-- Drawer Content -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
+        
+        <!-- Parent Issue Card -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 id="drawer-title" class="text-base font-extrabold text-slate-900">Issue Title</h3>
+            <span id="drawer-status-chip" class="chip-status chip-status-pending">PENDING</span>
+          </div>
+          <p id="drawer-address" class="text-slate-500 text-xs flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
+            <span>Address details</span>
+          </p>
+        </div>
+
+        <!-- Administrative Controls: Status & Assignment -->
+        <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-4">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Operational Controls</span>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Lifecycle Status</label>
+              <select id="drawer-select-status" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-medium">
+                <option value="REPORTED">REPORTED</option>
+                <option value="PENDING">PENDING</option>
+                <option value="ASSIGNED">ASSIGNED</option>
+                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                <option value="RESOLVED">RESOLVED</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Dispatch Department</label>
+              <select id="drawer-select-dept" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-medium">
+                <option value="Public Works - Roads">Public Works - Roads</option>
+                <option value="Municipal Sanitation">Municipal Sanitation</option>
+                <option value="Electrical Utilities">Electrical Utilities</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+            <button onclick="Admin.updateIssueStatusAndAssignment()" class="px-3.5 py-1.5 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 transition shadow-xs text-xs">
+              Save Status & Assignment
+            </button>
+            <button onclick="Admin.openResolveModal()" class="px-3.5 py-1.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition shadow-xs text-xs">
+              Mark Resolved with Evidence
+            </button>
+          </div>
+        </div>
+
+        <!-- Linked Citizen Submissions -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Corroborating Citizen Reports</h4>
+            <span id="drawer-child-count" class="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">0 reports</span>
+          </div>
+
+          <div id="drawer-child-reports" class="space-y-3">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: MARK RESOLVED WITH PHOTO PROOF                                     -->
+  <!-- ========================================================================= -->
+  <div id="modal-resolve-issue" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-sm font-extrabold text-slate-900">Resolve Issue with Photographic Evidence</h3>
         <button onclick="Admin.closeResolveModal()" class="text-slate-400 hover:text-slate-600">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
-      <p class="text-xs text-slate-500">Provide remarks on work done and optionally attach a photo of the completed repair.</p>
 
-      <form id="resolve-form" class="space-y-4">
+      <div class="space-y-3 text-xs">
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Resolution Remarks *</label>
-          <textarea id="resolve-notes" rows="3" required placeholder="e.g., Pothole filled with cold mix bitumen and compacted." class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+          <label class="block font-semibold text-slate-700 mb-1">Resolution Remarks</label>
+          <textarea id="resolve-notes" rows="3" placeholder="Document municipal repairs performed, contractor name, or asphalt patch batch..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"></textarea>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Completion Photo Proof</label>
-          <input id="resolve-photo-input" type="file" accept="image/*" class="w-full text-xs border border-slate-200 rounded-lg p-2 bg-slate-50">
+          <label class="block font-semibold text-slate-700 mb-1">Field Resolution Photo Proof</label>
+          <input type="file" id="resolve-image" accept="image/*" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
         </div>
-
-        <div class="flex gap-2 pt-2">
-          <button type="button" onclick="Admin.closeResolveModal()" class="flex-1 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm">Mark Resolved</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ============================================================= -->
-  <!-- MODAL: VIEW RESOLUTION PROOF (CITIZEN VIEW) -->
-  <!-- ============================================================= -->
-  <div id="resolution-proof-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
-    <div class="fixed inset-0 bg-black/50 backdrop-blur-xs" onclick="document.getElementById('resolution-proof-modal').classList.add('hidden')"></div>
-    <div class="bg-white rounded-2xl max-w-md w-full p-5 relative z-10 shadow-2xl space-y-3">
-      <div class="flex items-center justify-between">
-        <h4 class="font-bold text-slate-900 text-sm">Authority Resolution Proof</h4>
-        <button onclick="document.getElementById('resolution-proof-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
       </div>
-      <img id="res-proof-img" src="#" alt="Proof Photo" class="w-full h-60 object-cover rounded-xl border border-slate-200">
-      <div class="p-3 bg-slate-50 rounded-xl">
-        <div class="text-[10px] text-slate-400 font-bold uppercase">Official Remarks</div>
-        <p id="res-proof-notes" class="text-xs text-slate-700 mt-0.5"></p>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+        <button onclick="Admin.closeResolveModal()" class="px-3.5 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button onclick="Admin.submitResolutionProof()" class="px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs">Complete Resolution</button>
       </div>
     </div>
   </div>
 
-  <!-- ============================================================= -->
-  <!-- MODAL: AUTHENTICATION (SIGN IN / REGISTER) -->
-  <!-- ============================================================= -->
-  <div id="auth-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
-    <div class="fixed inset-0 bg-black/50 backdrop-blur-xs" onclick="Auth.closeModal()"></div>
-    
-    <div class="bg-white rounded-2xl max-w-sm w-full p-6 relative z-10 shadow-2xl">
-      <div class="flex items-center justify-between pb-3">
-        <h3 class="font-bold text-slate-900 text-base">Civora Account</h3>
-        <button id="auth-modal-close" class="text-slate-400 hover:text-slate-600">
+  <!-- ========================================================================= -->
+  <!-- MODAL: VIEW RESOLUTION PROOF (CITIZEN & ADMIN)                           -->
+  <!-- ========================================================================= -->
+  <div id="modal-view-proof" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-sm font-extrabold text-slate-900">Municipal Resolution Certificate</h3>
+        <button onclick="document.getElementById('modal-view-proof').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
 
-      <!-- Tabs -->
-      <div class="flex border-b border-slate-200 mb-4">
-        <button id="tab-login-btn" onclick="Auth.switchTab('login')" class="flex-1 py-2 text-sm font-semibold text-blue-600 border-b-2 border-blue-600">
+      <div class="space-y-3 text-xs">
+        <div id="proof-img-container" class="rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+          <img id="proof-img" src="#" alt="Resolution Evidence" class="w-full max-h-60 object-contain mx-auto" />
+        </div>
+        <div class="p-3 bg-slate-50 rounded-lg space-y-1">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Technician Remarks</span>
+          <p id="proof-notes" class="text-slate-700 leading-relaxed font-medium">No notes provided.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: AUTHENTICATION (SIGN IN & REGISTER)                                -->
+  <!-- ========================================================================= -->
+  <div id="modal-auth" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-xs">C</div>
+          <h3 id="auth-modal-title" class="text-sm font-extrabold text-slate-900">Sign In to Civora</h3>
+        </div>
+        <button onclick="Auth.closeModal()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <form id="auth-form" onsubmit="Auth.handleSubmit(event)" class="space-y-3 text-xs">
+        <div id="auth-name-group" class="hidden space-y-1">
+          <label class="block font-semibold text-slate-700">Full Name</label>
+          <input type="text" id="auth-name" placeholder="John Doe" class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+        </div>
+
+        <div class="space-y-1">
+          <label class="block font-semibold text-slate-700">Email Address</label>
+          <input type="email" id="auth-email" required placeholder="admin@civora.gov" class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+        </div>
+
+        <div class="space-y-1">
+          <label class="block font-semibold text-slate-700">Password</label>
+          <input type="password" id="auth-password" required placeholder="••••••••" class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+        </div>
+
+        <button type="submit" id="auth-submit-btn" class="w-full py-2.5 rounded-lg bg-slate-900 text-white font-bold hover:bg-slate-800 transition shadow-xs text-xs">
           Sign In
         </button>
-        <button id="tab-reg-btn" onclick="Auth.switchTab('register')" class="flex-1 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent">
-          Register
+      </form>
+
+      <div class="pt-2 text-center text-xs text-slate-500">
+        <span id="auth-switch-prompt">Don't have an account?</span>
+        <button type="button" onclick="Auth.toggleMode()" id="auth-switch-btn" class="text-blue-600 font-bold ml-1 hover:underline">
+          Create Account
         </button>
       </div>
-
-      <!-- Login Form -->
-      <div id="login-form-container">
-        <form id="login-form" class="space-y-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Email</label>
-            <input id="login-email" type="email" required placeholder="you@civora.org" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Password</label>
-            <input id="login-password" type="password" required placeholder="••••••••" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
-          </div>
-          <div id="login-error" class="text-rose-600 text-xs font-medium"></div>
-          <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs">
-            Sign In
-          </button>
-        </form>
-
-        <!-- Quick 1-Click Demo Login Shortcuts -->
-        <div class="mt-4 pt-3 border-t border-slate-100 space-y-2">
-          <div class="text-[11px] text-slate-400 font-semibold text-center">Quick Demo Logins:</div>
-          <div class="grid grid-cols-2 gap-2">
-            <button onclick="document.getElementById('login-email').value='admin@civora.org'; document.getElementById('login-password').value='admin123';" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-lg transition text-center">
-              🔑 Load Admin
-            </button>
-            <button onclick="document.getElementById('login-email').value='citizen@civora.org'; document.getElementById('login-password').value='citizen123';" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-lg transition text-center">
-              👤 Load Citizen
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Register Form -->
-      <div id="register-form-container" class="hidden">
-        <form id="register-form" class="space-y-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
-            <input id="reg-name" type="text" required placeholder="Abhay Chauhan" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Email</label>
-            <input id="reg-email" type="email" required placeholder="name@domain.com" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Password</label>
-            <input id="reg-password" type="password" required placeholder="••••••••" class="w-full text-xs border border-slate-300 rounded-lg p-2.5">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Role</label>
-            <select id="reg-role" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white font-medium">
-              <option value="CITIZEN">Citizen / Campus Resident</option>
-              <option value="ADMIN">Facility / City Administrator</option>
-            </select>
-          </div>
-          <div id="reg-error" class="text-rose-600 text-xs font-medium"></div>
-          <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs">
-            Create Account
-          </button>
-        </form>
-      </div>
-
     </div>
   </div>
 
   <!-- Toast Notification Container -->
-  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+  <div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 max-w-sm pointer-events-none"></div>
 
-  <!-- Application Scripts -->
+  <!-- Application Logic Scripts -->
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/citizen.js"></script>
   <script src="/js/admin.js"></script>
   <script src="/js/app.js"></script>
-
 </body>
 </html>

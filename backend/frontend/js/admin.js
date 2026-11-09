@@ -1,37 +1,110 @@
-// Admin Portal Management & Triage Logic
+// ==========================================================================
+// CIVORA ADMIN OPERATIONS & TRIAGE CONTROLLER
+// High-density Operations Dashboard, Leaflet GIS Markers,
+// Sub-view Routing, Data Table Triage & Slide-over Inspection Drawer
+// ==========================================================================
+
 const Admin = {
   map: null,
+  fullMap: null,
   markersLayer: null,
+  fullMarkersLayer: null,
   currentIssues: [],
+  filteredIssues: [],
   selectedIssueId: null,
+  currentSubView: "overview",
+  page: 1,
+  pageSize: 10,
 
   init() {
-    this.initMap();
-    this.bindEvents();
+    this.initMaps();
   },
 
-  initMap() {
+  initMaps() {
+    // 1. Overview split map
     const mapEl = document.getElementById("admin-map");
-    if (!mapEl || this.map) return;
+    if (mapEl && !this.map) {
+      this.map = L.map("admin-map").setView([28.6139, 77.2090], 12);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap contributors"
+      }).addTo(this.map);
+      this.markersLayer = L.layerGroup().addTo(this.map);
+    }
 
-    this.map = L.map("admin-map").setView([28.6139, 77.2090], 12);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "© OpenStreetMap contributors"
-    }).addTo(this.map);
+    // 2. Full GIS map
+    const fullMapEl = document.getElementById("live-full-map");
+    if (fullMapEl && !this.fullMap) {
+      this.fullMap = L.map("live-full-map").setView([28.6139, 77.2090], 12);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap contributors"
+      }).addTo(this.fullMap);
+      this.fullMarkersLayer = L.layerGroup().addTo(this.fullMap);
+    }
+  },
 
-    this.markersLayer = L.layerGroup().addTo(this.map);
+  switchSubView(viewId) {
+    this.currentSubView = viewId;
+
+    const views = ["overview", "live-map", "reports", "issues", "work-orders", "alerts", "analytics", "team", "settings"];
+    views.forEach(v => {
+      const el = document.getElementById(`subview-${v}`);
+      const navBtn = document.getElementById(`admin-nav-${v}`);
+      if (el) {
+        if (v === viewId) el.classList.remove("hidden");
+        else el.classList.add("hidden");
+      }
+      if (navBtn) {
+        if (v === viewId) {
+          navBtn.className = "w-full flex items-center justify-between px-3 py-2 rounded-lg font-semibold bg-slate-100 text-slate-900 transition";
+        } else {
+          navBtn.className = "w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition";
+        }
+      }
+    });
+
+    // Titles
+    const titleConfig = {
+      overview: { title: "Operations Overview", desc: "Real-time civic intelligence, incoming incident triage & spatial dispatch" },
+      "live-map": { title: "Geospatial Operations Canvas", desc: "Full-viewport GIS monitoring of active civic defect coordinates" },
+      reports: { title: "Citizen Submissions Feed", desc: "Ingested raw citizen reports with AI detections and authenticity flags" },
+      issues: { title: "Active Deduplicated Incidents", desc: "Consolidated parent defects aggregating corroborating citizen reports" },
+      "work-orders": { title: "Field Technician Work Orders", desc: "Dispatched maintenance tasks organized by departmental crew" },
+      alerts: { title: "High-Risk Safety Alerts & SLA", desc: "Critical severity hazards requiring emergency municipal containment" },
+      analytics: { title: "Municipal Analytics & Performance", desc: "Resolution velocity, hazard distribution, and SLA adherence" },
+      team: { title: "Municipal Maintenance Directory", desc: "Rosters and technical leads across infrastructure divisions" },
+      settings: { title: "System Operational Settings", desc: "YOLOv8 vision thresholds, deduplication radius, and DB configurations" }
+    };
+
+    const c = titleConfig[viewId] || titleConfig.overview;
+    document.getElementById("admin-page-title").textContent = c.title;
+    document.getElementById("admin-page-desc").textContent = c.desc;
+
+    if (viewId === "live-map" && this.fullMap) {
+      setTimeout(() => this.fullMap.invalidateSize(), 150);
+    }
   },
 
   async loadDashboard() {
-    if (!Auth.currentUser || Auth.currentUser.role !== "ADMIN") {
-      document.getElementById("admin-auth-warning").classList.remove("hidden");
-      document.getElementById("admin-content").classList.add("hidden");
+    const isAuthed = Auth.currentUser && Auth.currentUser.role === "ADMIN";
+    const warningEl = document.getElementById("admin-auth-warning");
+    const contentEl = document.getElementById("admin-content");
+
+    if (!isAuthed) {
+      if (warningEl) warningEl.classList.remove("hidden");
+      if (contentEl) contentEl.classList.add("hidden");
       return;
     }
 
-    document.getElementById("admin-auth-warning").classList.add("hidden");
-    document.getElementById("admin-content").classList.remove("hidden");
+    if (warningEl) warningEl.classList.add("hidden");
+    if (contentEl) contentEl.classList.remove("hidden");
+
+    // Set operator avatar
+    const avatarEl = document.getElementById("admin-operator-avatar");
+    const nameEl = document.getElementById("admin-operator-name");
+    if (avatarEl) avatarEl.textContent = (Auth.currentUser.name || "A").slice(0, 2).toUpperCase();
+    if (nameEl) nameEl.textContent = Auth.currentUser.name || "Municipal Admin";
 
     await Promise.all([
       this.loadAnalytics(),
@@ -43,23 +116,77 @@ const Admin = {
   async loadAnalytics() {
     try {
       const res = await Api.getAdminAnalytics();
-      const s = res.summary;
+      const s = res.summary || {};
 
-      document.getElementById("stat-total-issues").textContent = s.total_issues;
-      document.getElementById("stat-total-reports").textContent = s.total_reports;
-      document.getElementById("stat-dupes-prevented").textContent = s.duplicates_prevented;
-      document.getElementById("stat-critical-count").textContent = s.critical_count;
-      document.getElementById("stat-pending-count").textContent = s.pending_count;
-      document.getElementById("stat-resolved-count").textContent = s.resolved_count;
+      document.getElementById("stat-total-issues").textContent = s.total_issues || 0;
+      document.getElementById("stat-total-reports").textContent = s.total_reports || 0;
+      document.getElementById("stat-dupes-prevented").textContent = s.duplicates_prevented || 0;
+      document.getElementById("stat-critical-count").textContent = s.critical_count || 0;
+      document.getElementById("stat-pending-count").textContent = s.pending_count || 0;
       document.getElementById("stat-avg-hours").textContent = s.avg_resolution_hours ? `${s.avg_resolution_hours}h` : "N/A";
+
+      // Badges
+      const badgeReports = document.getElementById("badge-sidebar-reports");
+      const badgeIssues = document.getElementById("badge-sidebar-issues");
+      const badgeCritical = document.getElementById("badge-sidebar-critical");
+
+      if (badgeReports) badgeReports.textContent = s.total_reports || 0;
+      if (badgeIssues) badgeIssues.textContent = s.total_issues || 0;
+      if (badgeCritical) badgeCritical.textContent = s.critical_count || 0;
+
+      // Needs attention bar
+      const attnCritical = document.getElementById("attention-critical-count");
+      const attnText = document.getElementById("attention-summary-text");
+      if (attnCritical) attnCritical.textContent = `${s.critical_count || 0} CRITICAL`;
+      if (attnText) {
+        attnText.textContent = `${s.pending_count || 0} pending incidents and ${s.critical_count || 0} critical hazards require operational dispatch.`;
+      }
+
+      // Analytics View Breakdowns
+      this.renderAnalyticsBreakdowns(res);
+
     } catch (err) {
       console.error("Analytics fetch error:", err);
+    }
+  },
+
+  renderAnalyticsBreakdowns(data) {
+    const statusEl = document.getElementById("analytics-status-breakdown");
+    const catEl = document.getElementById("analytics-category-breakdown");
+    const prioEl = document.getElementById("analytics-priority-breakdown");
+
+    if (statusEl && data.by_status) {
+      statusEl.innerHTML = Object.entries(data.by_status).map(([k, v]) => `
+        <div class="flex items-center justify-between py-1 border-b border-slate-100">
+          <span class="font-medium text-slate-700">${k}</span>
+          <span class="font-mono font-bold bg-slate-100 px-2 py-0.5 rounded">${v}</span>
+        </div>
+      `).join("");
+    }
+
+    if (catEl && data.by_category) {
+      catEl.innerHTML = Object.entries(data.by_category).map(([k, v]) => `
+        <div class="flex items-center justify-between py-1 border-b border-slate-100">
+          <span class="font-medium text-slate-700 capitalize">${k.replace("_", " ")}</span>
+          <span class="font-mono font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">${v}</span>
+        </div>
+      `).join("");
+    }
+
+    if (prioEl && data.by_priority) {
+      prioEl.innerHTML = Object.entries(data.by_priority).map(([k, v]) => `
+        <div class="flex items-center justify-between py-1 border-b border-slate-100">
+          <span class="font-medium text-slate-700">${k}</span>
+          <span class="font-mono font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded">${v}</span>
+        </div>
+      `).join("");
     }
   },
 
   async loadMapMarkers() {
     if (!this.map || !this.markersLayer) return;
     this.markersLayer.clearLayers();
+    if (this.fullMarkersLayer) this.fullMarkersLayer.clearLayers();
 
     try {
       const res = await Api.getMapIssues();
@@ -73,353 +200,430 @@ const Admin = {
 
         bounds.push([lat, lng]);
 
-        // Color coding by status / priority
-        let markerColor = "#3b82f6"; // Blue
-        if (iss.status === "RESOLVED") markerColor = "#10b981"; // Green
-        else if (iss.priority_level === "CRITICAL") markerColor = "#ef4444"; // Red
-        else if (iss.priority_level === "HIGH") markerColor = "#f97316"; // Orange
-        else if (iss.priority_level === "MEDIUM") markerColor = "#f59e0b"; // Yellow
+        let markerClass = "marker-low";
+        if (iss.status === "RESOLVED") markerClass = "marker-resolved";
+        else if (iss.priority_level === "CRITICAL") markerClass = "marker-critical";
+        else if (iss.priority_level === "HIGH") markerClass = "marker-high";
+        else if (iss.priority_level === "MEDIUM") markerClass = "marker-medium";
 
-        const markerHtml = `
-          <div style="background-color:${markerColor}; width:16px; height:16px; border-radius:50%; border:2px solid white; box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>
+        const iconHtml = `
+          <div class="custom-civora-marker ${markerClass}">
+            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          </div>
         `;
 
         const customIcon = L.divIcon({
-          html: markerHtml,
-          className: "custom-map-pin",
-          iconSize: [16, 16],
-          iconAnchor: [8, 8]
+          html: iconHtml,
+          className: "leaflet-civora-pin",
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
         });
 
-        const m = L.marker([lat, lng], { icon: customIcon }).addTo(this.markersLayer);
-        m.bindPopup(`
-          <div class="p-1">
-            <h4 class="font-bold text-sm">${iss.title}</h4>
-            <p class="text-xs text-gray-500 mt-0.5">${iss.category} • Priority: <span class="font-bold">${iss.priority_level} (${iss.priority_score})</span></p>
-            <p class="text-xs text-gray-500">Reports: ${iss.report_count} • Status: ${iss.status}</p>
-            <button onclick="Admin.openIssueDetails('${iss.id}')" class="mt-2 text-xs bg-blue-600 text-white px-2 py-1 rounded font-medium">Manage Issue</button>
+        const popupContent = `
+          <div class="p-2 space-y-1.5 min-w-[200px]">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-slate-900">${iss.title || "Civic Defect"}</span>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${iss.priority_level === 'CRITICAL' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-800'}">${iss.priority_level}</span>
+            </div>
+            <p class="text-[11px] text-slate-500">${iss.category} • Status: <span class="font-bold">${iss.status}</span></p>
+            <p class="text-[10px] text-slate-400">Reports: ${iss.report_count || 1}</p>
+            <button onclick="Admin.openDrawer(${iss.id})" class="w-full mt-2 py-1 px-2 bg-slate-900 text-white rounded text-xs font-bold hover:bg-slate-800 transition">
+              Inspect in Drawer
+            </button>
           </div>
-        `);
+        `;
+
+        const m = L.marker([lat, lng], { icon: customIcon }).bindPopup(popupContent);
+        m.addTo(this.markersLayer);
+
+        if (this.fullMarkersLayer) {
+          const mFull = L.marker([lat, lng], { icon: customIcon }).bindPopup(popupContent);
+          mFull.addTo(this.fullMarkersLayer);
+        }
       });
 
       if (bounds.length > 0) {
         this.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+        if (this.fullMap) this.fullMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
       }
+
     } catch (err) {
-      console.error("Map load error:", err);
+      console.error("Map markers load error:", err);
     }
   },
 
   async loadIssues() {
-    const tableBody = document.getElementById("admin-issues-table-body");
-    tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400">Loading issues...</td></tr>`;
-
-    const status = document.getElementById("filter-status")?.value || "";
-    const category = document.getElementById("filter-category")?.value || "";
-    const priority = document.getElementById("filter-priority")?.value || "";
-    const search = document.getElementById("filter-search")?.value.trim() || "";
-
-    const params = {};
-    if (status) params.status = status;
-    if (category) params.category = category;
-    if (priority) params.priority = priority;
-    if (search) params.search = search;
-
     try {
-      const res = await Api.getIssues(params);
+      const res = await Api.getIssues({ limit: 150 });
       this.currentIssues = res.issues || [];
+      this.filteredIssues = [...this.currentIssues];
 
-      if (this.currentIssues.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">No issues matching filters.</td></tr>`;
-        return;
-      }
+      this.renderPriorityList();
+      this.renderIssuesTable();
+      this.renderSubViewsData();
 
-      tableBody.innerHTML = this.currentIssues.map((iss) => {
-        const priorityBadges = {
-          CRITICAL: "bg-rose-100 text-rose-800 border-rose-200",
-          HIGH: "bg-orange-100 text-orange-800 border-orange-200",
-          MEDIUM: "bg-amber-100 text-amber-800 border-amber-200",
-          LOW: "bg-blue-100 text-blue-800 border-blue-200"
-        };
-        const statusBadges = {
-          REPORTED: "bg-blue-50 text-blue-700",
-          PENDING: "bg-amber-50 text-amber-700",
-          ASSIGNED: "bg-purple-50 text-purple-700",
-          IN_PROGRESS: "bg-indigo-50 text-indigo-700",
-          RESOLVED: "bg-emerald-50 text-emerald-700"
-        };
-
-        const pBadge = priorityBadges[iss.priority_level] || "bg-slate-100 text-slate-700";
-        const sBadge = statusBadges[iss.status] || "bg-slate-100 text-slate-700";
-        const dateStr = new Date(iss.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-        return `
-          <tr class="hover:bg-slate-50 transition border-b border-slate-100 cursor-pointer" onclick="Admin.openIssueDetails('${iss.id}')">
-            <td class="py-3.5 px-4 font-mono text-xs text-slate-500">${iss.id}</td>
-            <td class="py-3.5 px-4">
-              <div class="font-medium text-slate-900">${iss.title}</div>
-              <div class="text-xs text-slate-400">${iss.address || `${iss.latitude.toFixed(3)}, ${iss.longitude.toFixed(3)}`}</div>
-            </td>
-            <td class="py-3.5 px-4">
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-800 capitalize">
-                ${iss.category.replace("_", " ")}
-              </span>
-            </td>
-            <td class="py-3.5 px-4">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${pBadge}">
-                ${iss.priority_level} (${iss.priority_score})
-              </span>
-            </td>
-            <td class="py-3.5 px-4">
-              <span class="inline-flex items-center gap-1 font-semibold text-xs text-slate-700 bg-slate-100 px-2 py-1 rounded">
-                ${iss.report_count} ${iss.report_count > 1 ? '<span class="text-xs text-amber-600 font-bold">(Duplicate cluster)</span>' : ''}
-              </span>
-            </td>
-            <td class="py-3.5 px-4">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${sBadge}">
-                ${iss.status}
-              </span>
-            </td>
-            <td class="py-3.5 px-4 text-right">
-              <button class="text-xs font-semibold text-blue-600 hover:text-blue-800 px-2.5 py-1 bg-blue-50 rounded">
-                Manage
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join("");
     } catch (err) {
-      tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-rose-500">${err.message}</td></tr>`;
+      console.error("Load issues error:", err);
     }
   },
 
-  async openIssueDetails(issueId) {
-    this.selectedIssueId = issueId;
-    const drawer = document.getElementById("issue-detail-drawer");
-    drawer.classList.remove("hidden");
+  renderPriorityList() {
+    const listEl = document.getElementById("high-priority-list");
+    const countEl = document.getElementById("priority-queue-count");
+    if (!listEl) return;
 
-    const contentEl = document.getElementById("drawer-content");
-    contentEl.innerHTML = `<div class="p-8 text-center text-slate-400">Loading issue details...</div>`;
+    // Filter for CRITICAL and HIGH priorities
+    const highPrio = this.currentIssues.filter(i => i.priority_level === "CRITICAL" || i.priority_level === "HIGH");
+    if (countEl) countEl.textContent = `${highPrio.length} items`;
 
-    try {
-      const res = await Api.getIssueDetails(issueId);
-      const iss = res.issue;
-
-      contentEl.innerHTML = `
-        <div class="space-y-6">
-          <!-- Header -->
-          <div class="flex items-start justify-between border-b pb-4">
-            <div>
-              <span class="text-xs font-mono text-slate-400">${iss.id}</span>
-              <h3 class="text-xl font-bold text-slate-900 mt-1">${iss.title}</h3>
-              <p class="text-xs text-slate-500 mt-1">${iss.address || `Lat ${iss.latitude}, Lon ${iss.longitude}`}</p>
-            </div>
-            <div class="text-right">
-              <span class="px-3 py-1 rounded-full text-xs font-bold ${iss.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}">
-                ${iss.status}
-              </span>
-              <div class="text-xs font-bold text-slate-500 mt-2">Priority: ${iss.priority_level} (${iss.priority_score}/100)</div>
-            </div>
-          </div>
-
-          <!-- Quick Actions & Status Progression -->
-          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Lifecycle Actions</h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-medium text-slate-700 mb-1">Update Status</label>
-                <select id="action-status-select" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white font-medium">
-                  <option value="REPORTED" ${iss.status === 'REPORTED' ? 'selected' : ''}>REPORTED</option>
-                  <option value="PENDING" ${iss.status === 'PENDING' ? 'selected' : ''}>PENDING</option>
-                  <option value="ASSIGNED" ${iss.status === 'ASSIGNED' ? 'selected' : ''}>ASSIGNED</option>
-                  <option value="IN_PROGRESS" ${iss.status === 'IN_PROGRESS' ? 'selected' : ''}>IN PROGRESS</option>
-                </select>
-                <button onclick="Admin.updateStatus()" class="mt-2 w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg">Save Status</button>
-              </div>
-
-              <div>
-                <label class="block text-xs font-medium text-slate-700 mb-1">Assign Responsible Staff</label>
-                <input id="action-assignee-input" type="text" value="${iss.assigned_to || ''}" placeholder="Technician / Officer name" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white">
-                <button onclick="Admin.assignStaff()" class="mt-2 w-full py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium rounded-lg">Assign</button>
-              </div>
-            </div>
-
-            <!-- Resolution Button -->
-            ${iss.status !== 'RESOLVED' ? `
-              <div class="mt-4 pt-3 border-t border-slate-200">
-                <button onclick="Admin.openResolveModal()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center justify-center gap-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                  Resolve Issue with Evidence
-                </button>
-              </div>
-            ` : `
-              <div class="mt-4 pt-3 border-t border-slate-200">
-                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                  <p class="text-xs font-bold text-emerald-800">Issue Resolved</p>
-                  <p class="text-xs text-emerald-700 mt-1">${iss.resolution_notes || ''}</p>
-                  ${iss.resolution_image_url ? `
-                    <img src="${iss.resolution_image_url}" alt="Proof" class="mt-2 h-32 rounded-md object-cover border border-emerald-300">
-                  ` : ''}
-                </div>
-              </div>
-            `}
-          </div>
-
-          <!-- Citizen Reports Linked to this Issue -->
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                Corroborating Reports (${iss.reports?.length || 0})
-              </h4>
-              <span class="text-[10px] text-slate-500 font-mono">Clustered within 50m</span>
-            </div>
-            <div class="space-y-3">
-              ${(iss.reports || []).map((r, idx) => {
-                let authBadge = '';
-                if (r.authenticity_status === 'LIKELY_AUTHENTIC') {
-                  authBadge = '<span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Authentic Capture</span>';
-                } else if (r.authenticity_status === 'UNCERTAIN') {
-                  authBadge = '<span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">ℹ Uncertain / Normal</span>';
-                } else if (r.authenticity_status === 'REVIEW_REQUIRED') {
-                  authBadge = '<span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">🔍 Review Required</span>';
-                } else {
-                  authBadge = '<span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200">📋 Audit Queued</span>';
-                }
-
-                const detectionsList = r.detections || [];
-                const detBadge = detectionsList.length > 0 
-                  ? `<span class="text-[10px] text-slate-500 font-mono">(${detectionsList.length} bbox${detectionsList.length>1?'es':''})</span>`
-                  : '';
-
-                return `
-                  <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs hover:border-slate-300 transition space-y-2.5">
-                    <div class="flex gap-3">
-                      <img src="${r.image_url}" alt="Citizen submission" class="w-20 h-20 object-cover rounded-lg flex-shrink-0 border border-slate-200">
-                      <div class="flex-1 text-xs space-y-1">
-                        <div class="flex justify-between items-start">
-                          <span class="font-bold text-slate-900">Submission #${idx + 1}</span>
-                          <span class="text-slate-400 text-[10px]">${new Date(r.created_at).toLocaleString()}</span>
-                        </div>
-                        <div class="text-slate-600">
-                          AI Category: <span class="font-semibold text-blue-700 uppercase">${r.ai_category}</span> (${Math.round((r.ai_confidence||0)*100)}% conf) ${detBadge}
-                        </div>
-                        <div class="flex items-center gap-2 pt-0.5">
-                          <span class="text-slate-500 font-medium">Severity: <span class="font-bold text-slate-800">${r.severity_score}/100</span></span>
-                          ${authBadge}
-                        </div>
-                      </div>
-                    </div>
-                    ${r.description ? `<p class="text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 italic">"${r.description}"</p>` : ''}
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-
-          <!-- Audit Timeline -->
-          <div>
-            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Lifecycle Audit Trail</h4>
-            <div class="space-y-2 border-l-2 border-slate-200 ml-2 pl-4">
-              ${(iss.timeline || []).map(t => `
-                <div class="relative text-xs">
-                  <div class="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-blue-600 border-2 border-white"></div>
-                  <div class="font-semibold text-slate-800">${t.to_status} <span class="font-normal text-slate-400">by ${t.actor_name}</span></div>
-                  <p class="text-slate-500 mt-0.5">${t.action_notes}</p>
-                  <div class="text-[10px] text-slate-400">${new Date(t.created_at).toLocaleString()}</div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        </div>
-      `;
-    } catch (err) {
-      contentEl.innerHTML = `<div class="p-8 text-center text-rose-500">${err.message}</div>`;
-    }
-  },
-
-  closeDrawer() {
-    document.getElementById("issue-detail-drawer").classList.add("hidden");
-    this.selectedIssueId = null;
-  },
-
-  async updateStatus() {
-    if (!this.selectedIssueId) return;
-    const status = document.getElementById("action-status-select").value;
-    try {
-      await Api.updateIssueStatus(this.selectedIssueId, status);
-      showToast(`Status updated to ${status}`, "success");
-      this.openIssueDetails(this.selectedIssueId);
-      this.loadIssues();
-      this.loadMapMarkers();
-      this.loadAnalytics();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  },
-
-  async assignStaff() {
-    if (!this.selectedIssueId) return;
-    const assignee = document.getElementById("action-assignee-input").value.trim();
-    if (!assignee) {
-      showToast("Please enter technician or staff name", "warning");
+    if (highPrio.length === 0) {
+      listEl.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">No high-priority hazards currently queued.</div>`;
       return;
     }
 
+    listEl.innerHTML = highPrio.slice(0, 6).map(iss => {
+      const pCls = iss.priority_level === "CRITICAL" ? "badge-priority-critical" : "badge-priority-high";
+      const sCls = iss.status === "RESOLVED" ? "chip-status-resolved" : (iss.status === "IN_PROGRESS" ? "chip-status-in-progress" : "chip-status-pending");
+
+      return `
+        <div class="p-3 rounded-lg hover:bg-slate-50 transition border border-transparent hover:border-slate-200 cursor-pointer flex items-center justify-between gap-3" onclick="Admin.openDrawer(${iss.id})">
+          <div class="min-w-0 flex-1 space-y-0.5">
+            <div class="flex items-center gap-2">
+              <span class="badge-priority ${pCls}">${iss.priority_level}</span>
+              <h4 class="font-bold text-xs text-slate-900 truncate">${iss.title || iss.category}</h4>
+            </div>
+            <p class="text-[11px] text-slate-500 truncate flex items-center gap-1">
+              <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
+              <span>${iss.address || "Coordinates logged"}</span>
+            </p>
+          </div>
+          <div class="flex flex-col items-end gap-1 shrink-0">
+            <span class="chip-status ${sCls}">${iss.status}</span>
+            <span class="text-[10px] text-slate-400 font-mono">${iss.report_count || 1} reports</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+  },
+
+  renderIssuesTable() {
+    const tbody = document.getElementById("issues-table-body");
+    const pageInfo = document.getElementById("pagination-info");
+    const prevBtn = document.getElementById("btn-prev-page");
+    const nextBtn = document.getElementById("btn-next-page");
+
+    if (!tbody) return;
+
+    const total = this.filteredIssues.length;
+    const start = (this.page - 1) * this.pageSize;
+    const end = Math.min(start + this.pageSize, total);
+    const pageItems = this.filteredIssues.slice(start, end);
+
+    if (pageInfo) pageInfo.textContent = `Showing ${total > 0 ? start + 1 : 0}-${end} of ${total} issues`;
+    if (prevBtn) prevBtn.disabled = this.page <= 1;
+    if (nextBtn) nextBtn.disabled = end >= total;
+
+    if (pageItems.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-slate-400">No matching issues found.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = pageItems.map(iss => {
+      const pCls = iss.priority_level === "CRITICAL" ? "badge-priority-critical" : (iss.priority_level === "HIGH" ? "badge-priority-high" : (iss.priority_level === "MEDIUM" ? "badge-priority-medium" : "badge-priority-low"));
+      const sCls = iss.status === "RESOLVED" ? "chip-status-resolved" : (iss.status === "IN_PROGRESS" ? "chip-status-in-progress" : (iss.status === "ASSIGNED" ? "chip-status-assigned" : "chip-status-pending"));
+
+      const timeAgo = this.formatTimeAgo(iss.created_at);
+
+      return `
+        <tr class="hover:bg-slate-50/70 transition">
+          <td class="px-6 py-3 font-mono font-bold text-slate-900">#ISS-${iss.id}</td>
+          <td class="px-4 py-3 capitalize font-semibold text-slate-800">${(iss.category || "").replace("_", " ")}</td>
+          <td class="px-4 py-3 text-slate-500 max-w-xs truncate" title="${iss.address || ''}">
+            ${iss.address || `${iss.latitude.toFixed(4)}, ${iss.longitude.toFixed(4)}`}
+          </td>
+          <td class="px-4 py-3">
+            <span class="badge-priority ${pCls}">${iss.priority_level}</span>
+          </td>
+          <td class="px-4 py-3">
+            <span class="chip-status ${sCls}">${iss.status}</span>
+          </td>
+          <td class="px-4 py-3 font-mono text-slate-600">${iss.report_count || 1}</td>
+          <td class="px-4 py-3 text-slate-400">${timeAgo}</td>
+          <td class="px-6 py-3 text-right">
+            <button onclick="Admin.openDrawer(${iss.id})" class="px-2.5 py-1 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition shadow-2xs">
+              Inspect
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  },
+
+  renderSubViewsData() {
+    // 1. Citizen reports list
+    const repEl = document.getElementById("all-reports-container");
+    if (repEl) {
+      repEl.innerHTML = this.currentIssues.map(iss => `
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs">
+          <div>
+            <span class="font-bold text-slate-900">${iss.title || iss.category}</span>
+            <span class="text-slate-400 ml-2 font-mono">#ISS-${iss.id}</span>
+            <p class="text-[11px] text-slate-500">${iss.address || "Location logged"}</p>
+          </div>
+          <button onclick="Admin.openDrawer(${iss.id})" class="px-2.5 py-1 bg-white border border-slate-300 rounded font-bold hover:bg-slate-100 transition">Inspect</button>
+        </div>
+      `).join("");
+    }
+
+    // 2. Active Deduplicated Issues
+    const activeEl = document.getElementById("active-issues-container");
+    if (activeEl) {
+      activeEl.innerHTML = this.currentIssues.map(iss => `
+        <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-xs flex items-center justify-between text-xs">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-mono font-bold text-slate-900">#ISS-${iss.id}</span>
+              <span class="font-extrabold text-sm text-slate-900">${iss.title}</span>
+              <span class="badge-priority badge-priority-medium">${iss.priority_level}</span>
+            </div>
+            <p class="text-slate-500 mt-1">${iss.address || `GPS: ${iss.latitude}, ${iss.longitude}`}</p>
+          </div>
+          <button onclick="Admin.openDrawer(${iss.id})" class="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition">Manage Incident</button>
+        </div>
+      `).join("");
+    }
+
+    // 3. Work Orders
+    const woEl = document.getElementById("work-orders-container");
+    if (woEl) {
+      const inProg = this.currentIssues.filter(i => i.status === "ASSIGNED" || i.status === "IN_PROGRESS");
+      woEl.innerHTML = inProg.length > 0 ? inProg.map(iss => `
+        <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="font-mono font-bold text-slate-900">#WO-${iss.id}</span>
+            <span class="chip-status chip-status-in-progress">${iss.status}</span>
+          </div>
+          <h4 class="font-bold text-slate-900">${iss.title}</h4>
+          <p class="text-slate-500 text-[11px]">${iss.address || "On-site"}</p>
+          <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-slate-400">Assigned: <strong class="text-slate-700">${iss.assigned_to || "Public Works"}</strong></span>
+            <button onclick="Admin.openDrawer(${iss.id})" class="text-blue-600 font-bold hover:underline">Update</button>
+          </div>
+        </div>
+      `).join("") : `<div class="col-span-3 text-center py-8 text-slate-400">No active dispatched work orders.</div>`;
+    }
+
+    // 4. Alerts
+    const alertEl = document.getElementById("alerts-list-container");
+    if (alertEl) {
+      const criticals = this.currentIssues.filter(i => i.priority_level === "CRITICAL");
+      alertEl.innerHTML = criticals.length > 0 ? criticals.map(iss => `
+        <div class="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-xs">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold text-xs shrink-0">!</div>
+            <div>
+              <span class="font-extrabold text-rose-900 text-sm">${iss.title}</span>
+              <p class="text-rose-700 text-[11px]">${iss.address || "High-risk location"} • Score: ${iss.priority_score}</p>
+            </div>
+          </div>
+          <button onclick="Admin.openDrawer(${iss.id})" class="px-3 py-1.5 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-700 transition">Immediate Action</button>
+        </div>
+      `).join("") : `<div class="text-center py-8 text-slate-400">No active critical hazard alerts. All clear.</div>`;
+    }
+  },
+
+  applyFilters() {
+    const cat = document.getElementById("filter-category").value;
+    const stat = document.getElementById("filter-status").value;
+    const prio = document.getElementById("filter-priority").value;
+    const search = document.getElementById("admin-global-search").value.toLowerCase().trim();
+
+    this.filteredIssues = this.currentIssues.filter(iss => {
+      if (cat !== "ALL" && iss.category !== cat) return false;
+      if (stat !== "ALL" && iss.status !== stat) return false;
+      if (prio !== "ALL" && iss.priority_level !== prio) return false;
+      if (search) {
+        const matchTitle = (iss.title || "").toLowerCase().includes(search);
+        const matchAddr = (iss.address || "").toLowerCase().includes(search);
+        const matchId = iss.id.toString().includes(search);
+        if (!matchTitle && !matchAddr && !matchId) return false;
+      }
+      return true;
+    });
+
+    this.page = 1;
+    this.renderIssuesTable();
+  },
+
+  handleSearch(event) {
+    this.applyFilters();
+  },
+
+  filterUnassigned() {
+    const statSelect = document.getElementById("filter-status");
+    if (statSelect) {
+      statSelect.value = "PENDING";
+      this.applyFilters();
+    }
+  },
+
+  prevPage() {
+    if (this.page > 1) {
+      this.page--;
+      this.renderIssuesTable();
+    }
+  },
+
+  nextPage() {
+    const totalPages = Math.ceil(this.filteredIssues.length / this.pageSize);
+    if (this.page < totalPages) {
+      this.page++;
+      this.renderIssuesTable();
+    }
+  },
+
+  formatTimeAgo(dateStr) {
+    if (!dateStr) return "Just now";
+    const sec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    const hrs = Math.floor(min / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  },
+
+  // Slide-Over Detail Drawer
+  async openDrawer(issueId) {
+    this.selectedIssueId = issueId;
+    const backdrop = document.getElementById("drawer-backdrop");
+    const drawer = document.getElementById("issue-detail-drawer");
+
+    if (backdrop && drawer) {
+      backdrop.classList.add("open");
+      drawer.classList.add("open");
+    }
+
     try {
-      await Api.assignIssue(this.selectedIssueId, assignee, "Public Works Department");
-      showToast(`Assigned to ${assignee}`, "success");
-      this.openIssueDetails(this.selectedIssueId);
-      this.loadIssues();
+      const res = await Api.getIssueDetails(issueId);
+      const iss = res.issue || {};
+      const reports = res.reports || [];
+
+      document.getElementById("drawer-issue-id").textContent = `#ISS-${iss.id}`;
+      document.getElementById("drawer-title").textContent = iss.title || iss.category;
+      document.getElementById("drawer-address").textContent = iss.address || `GPS: ${iss.latitude.toFixed(5)}, ${iss.longitude.toFixed(5)}`;
+      document.getElementById("drawer-status-chip").textContent = iss.status;
+      document.getElementById("drawer-priority-badge").textContent = iss.priority_level;
+      document.getElementById("drawer-select-status").value = iss.status || "PENDING";
+      document.getElementById("drawer-child-count").textContent = `${reports.length} reports`;
+
+      // Render Child Citizen Reports
+      const childContainer = document.getElementById("drawer-child-reports");
+      if (childContainer) {
+        childContainer.innerHTML = reports.map(r => `
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="font-mono text-[10px] font-bold text-slate-400">#REP-${r.id}</span>
+                <div class="font-bold text-slate-800 text-xs">${r.ai_category ? r.ai_category.toUpperCase() : "DEFECT"} (${Math.round((r.ai_confidence||0)*100)}% conf)</div>
+              </div>
+              <span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${r.authenticity_status === 'SUSPICIOUS' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}">
+                ${r.authenticity_status || 'LIKELY_AUTHENTIC'}
+              </span>
+            </div>
+
+            <div class="flex gap-3">
+              <div class="w-20 h-20 bg-slate-200 rounded-lg overflow-hidden shrink-0 border border-slate-300">
+                <img src="${r.image_url}" alt="Report Photo" class="w-full h-full object-cover" />
+              </div>
+              <div class="flex-1 space-y-1 text-[11px] text-slate-500">
+                <p>${r.address || "GPS geotagged"}</p>
+                ${r.description ? `<p class="italic text-slate-600">"${r.description}"</p>` : ""}
+                <p class="text-[10px] text-slate-400">${new Date(r.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        `).join("");
+      }
+
     } catch (err) {
-      showToast(err.message, "error");
+      console.error("Open drawer failed:", err);
+      showToast("Could not load issue details.", "error");
+    }
+  },
+
+  closeDrawer(event) {
+    if (event && event.target.id !== "drawer-backdrop" && event.target.tagName !== "BUTTON" && !event.target.closest("button")) {
+      return;
+    }
+    const backdrop = document.getElementById("drawer-backdrop");
+    const drawer = document.getElementById("issue-detail-drawer");
+    if (backdrop && drawer) {
+      backdrop.classList.remove("open");
+      drawer.classList.remove("open");
+    }
+    this.selectedIssueId = null;
+  },
+
+  async updateIssueStatusAndAssignment() {
+    if (!this.selectedIssueId) return;
+
+    const newStatus = document.getElementById("drawer-select-status").value;
+    const newDept = document.getElementById("drawer-select-dept").value;
+
+    try {
+      await Api.updateIssueStatus(this.selectedIssueId, newStatus);
+      await Api.assignIssue(this.selectedIssueId, "Field Unit", newDept);
+
+      showToast("Issue status and dispatch department updated!", "success");
+      this.closeDrawer();
+      this.loadDashboard();
+
+    } catch (err) {
+      console.error("Update failed:", err);
+      showToast(err.message || "Failed to update issue.", "error");
     }
   },
 
   openResolveModal() {
-    document.getElementById("resolve-modal").classList.remove("hidden");
+    const modal = document.getElementById("modal-resolve-issue");
+    if (modal) modal.classList.remove("hidden");
   },
 
   closeResolveModal() {
-    document.getElementById("resolve-modal").classList.add("hidden");
+    const modal = document.getElementById("modal-resolve-issue");
+    if (modal) modal.classList.add("hidden");
   },
 
-  async handleResolveSubmit(e) {
-    e.preventDefault();
+  async submitResolutionProof() {
     if (!this.selectedIssueId) return;
 
     const notes = document.getElementById("resolve-notes").value.trim();
-    const photoFile = document.getElementById("resolve-photo-input").files[0];
+    const fileInput = document.getElementById("resolve-image");
+    const file = fileInput && fileInput.files ? fileInput.files[0] : null;
 
     if (!notes) {
-      showToast("Please enter resolution remarks", "warning");
+      showToast("Please provide resolution notes describing the repair.", "warning");
       return;
     }
 
     const formData = new FormData();
     formData.append("resolution_notes", notes);
-    if (photoFile) {
-      formData.append("resolution_image", photoFile);
+    if (file) {
+      formData.append("resolution_image", file);
     }
 
     try {
       await Api.resolveIssue(this.selectedIssueId, formData);
-      showToast("Issue successfully resolved and verified!", "success");
+      showToast("Issue verified and marked RESOLVED!", "success");
       this.closeResolveModal();
-      this.openIssueDetails(this.selectedIssueId);
-      this.loadIssues();
-      this.loadMapMarkers();
-      this.loadAnalytics();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  },
+      this.closeDrawer();
+      this.loadDashboard();
 
-  bindEvents() {
-    document.getElementById("filter-status")?.addEventListener("change", () => this.loadIssues());
-    document.getElementById("filter-category")?.addEventListener("change", () => this.loadIssues());
-    document.getElementById("filter-priority")?.addEventListener("change", () => this.loadIssues());
-    document.getElementById("filter-search")?.addEventListener("input", () => this.loadIssues());
-    document.getElementById("resolve-form")?.addEventListener("submit", (e) => this.handleResolveSubmit(e));
+    } catch (err) {
+      console.error("Resolve failed:", err);
+      showToast(err.message || "Failed to mark issue resolved.", "error");
+    }
   }
 };
