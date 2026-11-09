@@ -1,6 +1,7 @@
 // ==========================================================================
 // CIVORA MAIN APPLICATION ORCHESTRATOR
-// Tab Routing, Global Toasts, Map Resize Invalidation & Service Worker
+// Tab Routing, Global Toasts, Map Resize Invalidation,
+// Dynamic Backend URL Discovery & Connection Diagnostics
 // ==========================================================================
 
 function showToast(message, type = "info") {
@@ -26,11 +27,12 @@ function showToast(message, type = "info") {
   setTimeout(() => {
     toast.classList.add("translate-y-2", "opacity-0");
     setTimeout(() => toast.remove(), 300);
-  }, 3500);
+  }, 4000);
 }
 
 const App = {
   currentTab: "report",
+  backendOnline: false,
 
   init() {
     Auth.init();
@@ -38,7 +40,11 @@ const App = {
     Admin.init();
 
     this.bindNavigation();
+    this.bindBackendListeners();
     this.registerServiceWorker();
+
+    // Check backend health immediately on startup
+    this.checkBackendHealth();
 
     // Check URL parameters for direct view routing
     const urlParams = new URLSearchParams(window.location.search);
@@ -101,6 +107,163 @@ const App = {
     } else {
       // Default view
       this.switchTab("report");
+    }
+  },
+
+  // Backend Connectivity Diagnostics & Health Monitoring
+  async checkBackendHealth() {
+    const statusDot = document.getElementById("backend-status-dot");
+    const statusText = document.getElementById("backend-status-text");
+    const offlineBanner = document.getElementById("backend-offline-banner");
+    const offlineMsg = document.getElementById("backend-offline-message");
+    const settingsPill = document.getElementById("settings-backend-pill");
+    const settingsInput = document.getElementById("settings-backend-url-input");
+
+    const currentBase = Api.getBaseUrl();
+    if (settingsInput) settingsInput.value = currentBase;
+
+    const result = await Api.checkHealth();
+    this.backendOnline = result.ok;
+
+    if (result.ok) {
+      if (statusDot) statusDot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse";
+      if (statusText) statusText.textContent = currentBase ? "API CONNECTED" : "OPS ACTIVE";
+      if (offlineBanner) offlineBanner.classList.add("hidden");
+      if (settingsPill) {
+        settingsPill.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800";
+        settingsPill.textContent = `Online (${result.latency}ms)`;
+      }
+    } else {
+      if (statusDot) statusDot.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
+      if (statusText) statusText.textContent = "API OFFLINE";
+      if (offlineBanner) {
+        offlineBanner.classList.remove("hidden");
+        if (offlineMsg) {
+          offlineMsg.textContent = result.isTimeout
+            ? "Backend server is starting up (cold start, please allow ~30-50s)..."
+            : `Cannot connect to backend API at ${currentBase || 'current domain'}. Click 'Set Backend URL' to configure.`;
+        }
+      }
+      if (settingsPill) {
+        settingsPill.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800";
+        settingsPill.textContent = "Unreachable";
+      }
+    }
+  },
+
+  retryBackendConnection() {
+    showToast("Pinging backend server...", "info");
+    this.checkBackendHealth().then(() => {
+      if (this.backendOnline) {
+        showToast("Backend connected successfully!", "success");
+        if (this.currentTab === "admin") Admin.loadDashboard();
+        else if (this.currentTab === "my-reports") Citizen.loadMyReports();
+      } else {
+        showToast("Backend still unreachable. Please verify server URL.", "warning");
+      }
+    });
+  },
+
+  bindBackendListeners() {
+    window.addEventListener("civora:backend-offline", (e) => {
+      const banner = document.getElementById("backend-offline-banner");
+      const msg = document.getElementById("backend-offline-message");
+      if (banner) banner.classList.remove("hidden");
+      if (msg) {
+        msg.textContent = `API request failed at ${e.detail.base || 'current domain'}. If your backend runs on Render, configure your Render URL.`;
+      }
+    });
+
+    window.addEventListener("civora:backend-changed", () => {
+      this.checkBackendHealth();
+    });
+  },
+
+  // Modal Backend Config Controls
+  openBackendConfig() {
+    const modal = document.getElementById("modal-backend-config");
+    const input = document.getElementById("modal-backend-url-input");
+    if (input) input.value = Api.getBaseUrl();
+    if (modal) modal.classList.remove("hidden");
+    this.testModalBackendConnection();
+  },
+
+  closeBackendConfig() {
+    const modal = document.getElementById("modal-backend-config");
+    if (modal) modal.classList.add("hidden");
+  },
+
+  setBackendPreset(url) {
+    const input = document.getElementById("modal-backend-url-input");
+    if (input) {
+      input.value = url;
+      this.testModalBackendConnection();
+    }
+  },
+
+  async testModalBackendConnection() {
+    const input = document.getElementById("modal-backend-url-input");
+    const badge = document.getElementById("modal-backend-status-badge");
+    const msg = document.getElementById("modal-backend-status-msg");
+    const testBtn = document.getElementById("btn-test-modal-backend");
+
+    const targetUrl = input ? input.value.trim() : "";
+
+    if (badge) {
+      badge.textContent = "Testing...";
+      badge.className = "font-bold text-amber-600";
+    }
+    if (msg) msg.textContent = `Pinging ${targetUrl || 'same-origin'}/api/health...`;
+    if (testBtn) testBtn.disabled = true;
+
+    const res = await Api.checkHealth(targetUrl);
+
+    if (testBtn) testBtn.disabled = false;
+    if (res.ok) {
+      if (badge) {
+        badge.textContent = `Connected (${res.latency}ms)`;
+        badge.className = "font-bold text-emerald-600";
+      }
+      if (msg) msg.textContent = "Backend is responsive and online! Click 'Save & Connect' to apply.";
+    } else {
+      if (badge) {
+        badge.textContent = "Failed";
+        badge.className = "font-bold text-rose-600";
+      }
+      if (msg) {
+        msg.textContent = res.isTimeout
+          ? "Request timed out. If on Render free tier, the instance might be waking up (cold start)."
+          : `Failed to reach backend: ${res.error}. Ensure URL is correct and server is running.`;
+      }
+    }
+  },
+
+  async saveModalBackendConnection() {
+    const input = document.getElementById("modal-backend-url-input");
+    const targetUrl = input ? input.value.trim() : "";
+    Api.setBackendUrl(targetUrl);
+    this.closeBackendConfig();
+    showToast(`Backend API configured to: ${targetUrl || 'Same-Origin'}`, "success");
+
+    await this.checkBackendHealth();
+    if (this.currentTab === "admin") {
+      Admin.loadDashboard();
+    } else if (this.currentTab === "my-reports") {
+      Citizen.loadMyReports();
+    }
+  },
+
+  async testAndSaveSettingsBackend() {
+    const input = document.getElementById("settings-backend-url-input");
+    const targetUrl = input ? input.value.trim() : "";
+    Api.setBackendUrl(targetUrl);
+    showToast("Testing and applying backend URL...", "info");
+    await this.checkBackendHealth();
+    if (this.backendOnline) {
+      showToast("Backend connection verified and saved!", "success");
+      Admin.loadDashboard();
+    } else {
+      showToast("Applied, but backend is not responding yet.", "warning");
     }
   },
 

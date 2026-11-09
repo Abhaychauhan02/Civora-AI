@@ -74,11 +74,11 @@ app = FastAPI(
 # Defensive security headers
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Enable CORS with configured allowlist and regex for Vercel/Render preview deploys
+# Enable full cross-origin resource sharing (CORS) for external frontends (Vercel, Netlify, Custom Domains)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"https://.*\.vercel\.app|https://.*\.onrender\.com",
+    allow_origins=["*"],
+    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

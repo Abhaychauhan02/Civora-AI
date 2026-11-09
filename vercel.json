@@ -1,15 +1,18 @@
 {
   "version": 2,
-  "builds": [
+  "cleanUrls": true,
+  "rewrites": [
     {
-      "src": "main.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
+      "source": "/(css|js|uploads)/(.*)",
+      "destination": "/frontend/$1/$2"
+    },
     {
-      "src": "/(.*)",
-      "dest": "main.py"
+      "source": "/(manifest.json|sw.js|favicon.ico)",
+      "destination": "/frontend/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/index.html"
     }
   ]
 }

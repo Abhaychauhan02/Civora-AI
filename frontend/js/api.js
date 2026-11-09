@@ -1,7 +1,88 @@
-// API Client for Civora Backend
-const API_BASE = "";
+// ==========================================================================
+// CIVORA API CLIENT & DYNAMIC BACKEND RESOLVER
+// Supports multi-domain deployments (e.g. Vercel Frontend + Render Backend),
+// local development, live health pinging & cold-start recovery
+// ==========================================================================
 
 const Api = {
+  // Retrieve the configured backend URL
+  getBaseUrl() {
+    // 1. Query parameter override: ?backend=https://civora-ai.onrender.com
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const queryBackend = params.get("backend") || params.get("api");
+      if (queryBackend) {
+        const clean = queryBackend.trim().replace(/\/+$/, "");
+        localStorage.setItem("civora_backend_url", clean);
+        return clean;
+      }
+    } catch (_) {}
+
+    // 2. Persisted user configuration in localStorage
+    try {
+      const stored = localStorage.getItem("civora_backend_url");
+      if (stored && stored.trim() !== "") {
+        return stored.trim().replace(/\/+$/, "");
+      }
+    } catch (_) {}
+
+    // 3. Global window environment injection
+    if (typeof window !== "undefined" && window.__CIVORA_BACKEND_URL__) {
+      return window.__CIVORA_BACKEND_URL__.trim().replace(/\/+$/, "");
+    }
+
+    // 4. Default: Same-origin relative path ("")
+    return "";
+  },
+
+  // Set and persist backend URL
+  setBackendUrl(url) {
+    const clean = (url || "").trim().replace(/\/+$/, "");
+    if (clean === "" || clean === window.location.origin) {
+      localStorage.removeItem("civora_backend_url");
+    } else {
+      localStorage.setItem("civora_backend_url", clean);
+    }
+    window.dispatchEvent(new CustomEvent("civora:backend-changed", { detail: { url: clean } }));
+  },
+
+  // Test backend connectivity and measure latency
+  async checkHealth(targetUrl = null) {
+    const base = targetUrl !== null ? (targetUrl || "").trim().replace(/\/+$/, "") : this.getBaseUrl();
+    const endpoint = `${base}/api/health`;
+    const startTime = performance.now();
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const resp = await fetch(endpoint, {
+        method: "GET",
+        signal: controller.signal,
+        headers: { "Accept": "application/json" }
+      });
+      clearTimeout(timeoutId);
+
+      const latency = Math.round(performance.now() - startTime);
+      if (resp.ok) {
+        const data = await resp.json();
+        return { ok: true, latency, data, base };
+      } else {
+        return { ok: false, status: resp.status, error: `HTTP ${resp.status}`, latency, base };
+      }
+    } catch (err) {
+      const latency = Math.round(performance.now() - startTime);
+      const isTimeout = err.name === "AbortError";
+      return {
+        ok: false,
+        error: isTimeout ? "Connection timed out (backend may be starting up)" : "Network connection failed",
+        isTimeout,
+        latency,
+        base
+      };
+    }
+  },
+
   getToken() {
     return localStorage.getItem("civora_token");
   },
@@ -38,23 +119,41 @@ const Api = {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}${url}`, {
-      ...options,
-      headers
-    });
+    const base = this.getBaseUrl();
+    const fullUrl = `${base}${url}`;
 
-    const isJson = response.headers.get("content-type")?.includes("application/json");
-    const data = isJson ? await response.json() : await response.text();
+    try {
+      const response = await fetch(fullUrl, {
+        ...options,
+        headers
+      });
 
-    if (!response.ok) {
-      const errorMsg = data?.detail || data?.message || "Request failed";
-      throw new Error(errorMsg);
+      const isJson = response.headers.get("content-type")?.includes("application/json");
+      const data = isJson ? await response.json() : await response.text();
+
+      if (!response.ok) {
+        const errorMsg = data?.detail || data?.message || `HTTP ${response.status} Request failed`;
+        throw new Error(errorMsg);
+      }
+
+      return data;
+    } catch (err) {
+      // If network fetch failed entirely (e.g. backend offline or wrong URL)
+      if (err.name === "TypeError" && err.message.toLowerCase().includes("fetch")) {
+        window.dispatchEvent(new CustomEvent("civora:backend-offline", {
+          detail: { url: fullUrl, base, originalError: err.message }
+        }));
+        throw new Error(
+          base === ""
+            ? `Cannot reach backend API at current domain. If backend is on Render, configure backend URL in settings.`
+            : `Cannot connect to backend server at ${base}. Please verify your server is running and accessible.`
+        );
+      }
+      throw err;
     }
-
-    return data;
   },
 
-  // Auth
+  // Auth Endpoints
   async login(email, password) {
     return this.request("/api/auth/login", {
       method: "POST",
@@ -75,7 +174,7 @@ const Api = {
     return this.request("/api/auth/me");
   },
 
-  // Reports
+  // Report Submission Endpoints
   async submitReport(formData) {
     return this.request("/api/reports/submit", {
       method: "POST",
@@ -87,7 +186,7 @@ const Api = {
     return this.request("/api/reports/my");
   },
 
-  // Issues & Admin
+  // Issues & Admin Triage Endpoints
   async getIssues(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/api/issues?${query}`);

@@ -54,10 +54,10 @@
         <div>
           <div class="flex items-center gap-2">
             <span class="font-extrabold text-base tracking-tight text-slate-900">CIVORA</span>
-            <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              OPS ACTIVE
-            </span>
+            <button onclick="App.openBackendConfig()" id="backend-status-pill" class="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition" title="Click to inspect or configure Backend API URL">
+              <span id="backend-status-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span id="backend-status-text">OPS ACTIVE</span>
+            </button>
           </div>
           <p class="text-[11px] text-slate-500 font-medium hidden sm:block">Civic Intelligence & Resolution Platform</p>
         </div>
@@ -104,6 +104,22 @@
       </nav>
     </div>
   </header>
+
+  <!-- Backend Connectivity Alert & Resolution Banner (auto-surfaced when backend is unreachable) -->
+  <div id="backend-offline-banner" class="hidden bg-amber-500 text-slate-950 px-4 py-2.5 text-xs font-semibold flex items-center justify-between border-b border-amber-600 shadow-sm z-30">
+    <div class="flex items-center gap-2 max-w-3xl">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+      <span id="backend-offline-message">Backend API is unreachable. If your backend is deployed on Render, configure the backend URL to connect.</span>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <button onclick="App.retryBackendConnection()" class="px-2.5 py-1 bg-white text-slate-900 rounded text-[11px] font-bold hover:bg-slate-100 transition shadow-2xs">
+        Retry Ping
+      </button>
+      <button onclick="App.openBackendConfig()" class="px-2.5 py-1 bg-slate-950 text-white rounded text-[11px] font-bold hover:bg-slate-800 transition shadow-2xs">
+        Set Backend URL
+      </button>
+    </div>
+  </div>
 
   <!-- ========================================================================= -->
   <!-- TAB 1: CITIZEN REPORTING & LANDING EXPERIENCE                             -->
@@ -877,6 +893,24 @@
                 <span class="font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">WAL ACTIVE</span>
               </div>
             </div>
+
+            <!-- Backend URL Configuration -->
+            <div class="mt-6 pt-5 border-t border-slate-200/80 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="text-xs font-bold text-slate-900">Backend API Server Endpoint</h4>
+                  <p class="text-[11px] text-slate-500">Target host for API requests, authentication & AI diagnostics</p>
+                </div>
+                <span id="settings-backend-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">Connecting...</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="text" id="settings-backend-url-input" placeholder="e.g. https://civora-ai.onrender.com or empty for same-origin" class="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg font-mono" />
+                <button onclick="App.testAndSaveSettingsBackend()" class="px-3.5 py-1.5 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 transition text-xs shrink-0">
+                  Save & Connect
+                </button>
+              </div>
+              <p id="settings-backend-hint" class="text-[10px] text-slate-400">Default is empty (same-origin relative). If frontend is on Vercel and backend is on Render, set your Render URL.</p>
+            </div>
           </div>
         </div>
 
@@ -1063,6 +1097,70 @@
         <span id="auth-switch-prompt">Don't have an account?</span>
         <button type="button" onclick="Auth.toggleMode()" id="auth-switch-btn" class="text-blue-600 font-bold ml-1 hover:underline">
           Create Account
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: BACKEND API CONNECTION CONFIGURATION                               -->
+  <!-- ========================================================================= -->
+  <div id="modal-backend-config" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" /></svg>
+          </div>
+          <h3 class="text-sm font-extrabold text-slate-900">Backend API Connection</h3>
+        </div>
+        <button onclick="App.closeBackendConfig()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <p class="text-slate-600 leading-relaxed">
+          If your frontend is hosted on <strong>Vercel</strong> or another service while your backend runs on <strong>Render</strong>, enter your Render URL below to connect them:
+        </p>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Backend Server API URL</label>
+          <input type="text" id="modal-backend-url-input" placeholder="e.g. https://civora-ai.onrender.com" class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <!-- Quick Presets -->
+        <div>
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Quick Presets</span>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" onclick="App.setBackendPreset('')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition">
+              Same-Origin (Default)
+            </button>
+            <button type="button" onclick="App.setBackendPreset('http://localhost:8000')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition">
+              Localhost (8000)
+            </button>
+            <button type="button" onclick="App.setBackendPreset('https://civora-ai.onrender.com')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition">
+              Render Default
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Ping Feedback -->
+        <div id="modal-backend-feedback" class="p-3 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold">Live Connectivity:</span>
+            <span id="modal-backend-status-badge" class="font-bold text-slate-500">Not Tested</span>
+          </div>
+          <p id="modal-backend-status-msg" class="text-slate-400">Click "Test Connection" to ping /api/health.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 text-xs">
+        <button type="button" onclick="App.testModalBackendConnection()" id="btn-test-modal-backend" class="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition">
+          Test Connection
+        </button>
+        <button type="button" onclick="App.saveModalBackendConnection()" class="px-4 py-2 rounded-lg bg-slate-900 text-white font-bold hover:bg-slate-800 transition shadow-xs">
+          Save & Connect
         </button>
       </div>
     </div>
