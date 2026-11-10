@@ -85,12 +85,13 @@ def login_user(req: LoginRequest, request: Request):
     req_email = req.email.strip().lower()
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, email, password_hash, full_name, role, phone FROM users WHERE email = ?", (req_email,))
+        cursor.execute("SELECT id, email, password_hash, full_name, role, phone, token_version FROM users WHERE email = ?", (req_email,))
         user = cursor.fetchone()
         if not user or not verify_password(req.password, user["password_hash"]):
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token = create_access_token({"sub": user["id"], "email": user["email"], "role": user["role"]})
+    t_ver = user["token_version"] if "token_version" in user.keys() else 1
+    token = create_access_token({"sub": user["id"], "email": user["email"], "role": user["role"], "token_version": t_ver})
     return {
         "access_token": token,
         "token_type": "bearer",

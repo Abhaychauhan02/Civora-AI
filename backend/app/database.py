@@ -45,9 +45,16 @@ def init_db():
             full_name TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'CITIZEN', -- 'CITIZEN' or 'ADMIN'
             phone TEXT,
+            token_version INTEGER NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
+
+        # Safe migration for existing DBs: ensure token_version column exists
+        cursor.execute("PRAGMA table_info(users)")
+        user_cols = [c[1] for c in cursor.fetchall()]
+        if "token_version" not in user_cols:
+            cursor.execute("ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1")
 
         # 2. Issues Table (The physical real-world problem)
         cursor.execute("""

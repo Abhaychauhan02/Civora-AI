@@ -86,11 +86,16 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[Di
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, email, full_name, role, phone FROM users WHERE id = ?", (user_id,))
+        cursor.execute("SELECT id, email, full_name, role, phone, token_version FROM users WHERE id = ?", (user_id,))
         row = cursor.fetchone()
         if not row:
             raise HTTPException(status_code=401, detail="User account not found")
-        return dict(row)
+        user_dict = dict(row)
+        token_ver = payload.get("token_version")
+        db_ver = user_dict.get("token_version", 1)
+        if token_ver is not None and token_ver != db_ver:
+            raise HTTPException(status_code=401, detail="Session invalidated. Please sign in again.")
+        return user_dict
 
 
 def require_auth(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
