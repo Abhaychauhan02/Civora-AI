@@ -21,7 +21,7 @@ def _get_model():
     return _model if _model is not False else None
 
 
-def detect_civic_issue(image_path, conf_threshold=0.4):
+def detect_civic_issue(image_path, conf_threshold=0.25):
     """
     Runs Civora's detection model on a single image.
 
