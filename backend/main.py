@@ -58,9 +58,25 @@ def seed_initial_accounts():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Ensure tables and directories exist
+    # Startup: Ensure tables, migrations and directories exist
     init_db()
     seed_initial_accounts()
+
+    # Pre-warm AI vision & authenticity models in worker memory
+    try:
+        from src.inference.detect import _get_model
+        _get_model()
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(f"YOLO pre-warm warning: {exc}")
+
+    try:
+        from src.authenticity.screen import _get_classifier
+        _get_classifier()
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(f"Authenticity classifier pre-warm warning: {exc}")
+
     yield
 
 

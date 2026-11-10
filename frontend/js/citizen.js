@@ -425,9 +425,10 @@ const Citizen = {
       showToast("Report submitted successfully! AI analysis complete.", "success");
 
       // Extract unified AI values (handles flat & nested structures)
+      const isDetected = (result.status || result.ai_analysis?.status) === "DETECTION_FOUND";
       const primaryCat = (result.ai_category || result.ai_analysis?.category || this.selectedCategory || "Pothole").replace(/_/g, " ");
-      const rawConf = typeof result.ai_confidence === "number" ? result.ai_confidence : (result.ai_analysis?.confidence || 0.91);
-      const confPct = Math.round(rawConf * 100);
+      const rawConf = typeof result.ai_confidence === "number" ? result.ai_confidence : (typeof result.ai_analysis?.confidence === "number" ? result.ai_analysis.confidence : null);
+      const confPct = rawConf !== null ? Math.round(rawConf * 100) : null;
       const auth = result.authenticity_result || result.ai_analysis?.authenticity || { status: "LIKELY_AUTHENTIC", real_probability: 0.94 };
       const detections = result.ai_detections || result.ai_analysis?.detections || [];
       const dept = result.assigned_department || result.ai_analysis?.assigned_department || "Public Works Dept (PWD)";
@@ -443,12 +444,22 @@ const Citizen = {
 
       if (diagCard) diagCard.classList.remove("hidden");
       if (categoryEl) categoryEl.textContent = primaryCat.toUpperCase();
-      if (confEl) confEl.textContent = `${confPct}% conf`;
+      if (confEl) {
+        if (confPct !== null) {
+          confEl.textContent = `${confPct}% conf`;
+          confEl.className = "text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded";
+        } else {
+          confEl.textContent = "Manual Review";
+          confEl.className = "text-xs font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded";
+        }
+      }
       if (deptEl) deptEl.textContent = dept;
       if (priorityEl) priorityEl.textContent = `Triage: ${priority} (${priorityScore}/100)`;
 
       if (detections && detections.length > 0) {
         this.drawBoundingBoxes(detections);
+      } else {
+        this.clearBoundingBoxes();
       }
 
       this.renderAuthenticityTransparency(auth);
@@ -457,7 +468,7 @@ const Citizen = {
       this.openSuccessModal({
         reportId: result.report_id || "REP-" + Math.floor(10000 + Math.random() * 90000),
         category: primaryCat,
-        confidence: confPct,
+        confidenceText: confPct !== null ? `${confPct}% AI Vision Confidence` : "Visual Staff Verification Required",
         dept: dept,
         authStatus: `${auth.status || 'LIKELY_AUTHENTIC'} (${(auth.real_probability || 0.94).toFixed(2)})`,
         priority: `${priority} • Score ${priorityScore}/100`,
@@ -491,7 +502,7 @@ const Citizen = {
 
     if (tId) tId.textContent = `Ticket #${data.reportId} • Municipal Triage Queue`;
     if (rCat) rCat.textContent = data.category.toUpperCase();
-    if (rConf) rConf.textContent = `${data.confidence}% AI Vision Confidence`;
+    if (rConf) rConf.textContent = data.confidenceText || (typeof data.confidence === "number" ? `${data.confidence}% AI Vision Confidence` : "Visual Staff Verification Queued");
     if (rDept) rDept.textContent = data.dept;
     if (rAuth) rAuth.textContent = data.authStatus;
     if (rPrio) rPrio.textContent = data.priority;

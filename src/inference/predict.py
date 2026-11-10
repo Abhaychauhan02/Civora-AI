@@ -1,23 +1,42 @@
+"""
+Civora Unified AI Pipeline: Authenticity Screening + YOLO Object Detection + Severity Scoring.
+"""
+from typing import Dict, Any
 from src.inference.detect import detect_civic_issue
 from src.authenticity.screen import screen_authenticity
 from src.severity.scoring import calculate_severity
 
 
-def predict(image_path):
+def predict(image_path: str) -> Dict[str, Any]:
     """
-    Full Civora AI pipeline: authenticity + detection + severity.
-    This is the function the API endpoint will call.
+    Full Civora AI pipeline:
+    1. Authenticity screening on raw image file (preserves camera EXIF & sensor noise).
+    2. Civic hazard detection via fine-tuned YOLOv8.
+    3. Rule-based severity scoring and priority mapping.
     """
     authenticity = screen_authenticity(image_path)
     detections = detect_civic_issue(image_path)
     severity = calculate_severity(detections)
 
+    if detections:
+        top_detection = detections[0]
+        primary_category = top_detection.get("class_name") or top_detection.get("issue")
+        primary_confidence = top_detection.get("confidence")
+        status = "DETECTION_FOUND"
+    else:
+        primary_category = "unclassified"
+        primary_confidence = None
+        status = "NO_DETECTIONS_FOUND"
+
     return {
-        "model_version": "civora-yolo-v1",
-        "authenticity": authenticity,
+        "status": status,
+        "model_version": "civora-yolo-v1-improved",
+        "primary_category": primary_category,
+        "primary_confidence": primary_confidence,
         "detections": detections,
+        "authenticity": authenticity,
         "severity_score": severity["severity_score"],
-        "priority": severity["priority"],
+        "priority": severity["priority"]
     }
 
 

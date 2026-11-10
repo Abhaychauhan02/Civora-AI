@@ -74,22 +74,17 @@ async def submit_report(
     severity_score = int(ai_result.get("severity_score", 30))
     auth_status = authenticity.get("status", "LIKELY_AUTHENTIC")
 
-    # Determine primary category and confidence
+    # Determine primary category and confidence from real AI detection
     if detections:
-        top_det = max(detections, key=lambda d: d.get("confidence", 0))
-        primary_category = top_det.get("issue") or top_det.get("class_name") or (category or "pothole")
-        primary_confidence = float(top_det.get("confidence", 0.91))
+        top_det = max(detections, key=lambda d: d.get("confidence", 0.0))
+        primary_category = top_det.get("class_name") or top_det.get("issue")
+        primary_confidence = float(top_det.get("confidence", 0.0))
+        detection_status = "DETECTION_FOUND"
     else:
-        # User category preference or calibrated detection fallback
-        primary_category = (category or "pothole").strip().lower().replace(" ", "_")
-        primary_confidence = 0.89
-        detections = [
-            {
-                "issue": primary_category,
-                "confidence": primary_confidence,
-                "bbox": [60.0, 60.0, 340.0, 340.0]
-            }
-        ]
+        # Real triage: no fabricated boxes, citizen category is accepted for routing
+        primary_category = (category or "general_infrastructure").strip().lower().replace(" ", "_")
+        primary_confidence = None
+        detection_status = "NO_DETECTIONS_FOUND"
 
     user_id = current_user["id"] if current_user else None
     user_name = current_user["full_name"] if current_user else "Anonymous Citizen"
@@ -161,6 +156,7 @@ async def submit_report(
                 latitude, longitude, address, initial_score, initial_tier
             ))
 
+            conf_str = f"{int(primary_confidence * 100)}% conf" if primary_confidence is not None else "manual triage"
             cursor.execute("""
                 INSERT INTO issue_timeline (id, issue_id, from_status, to_status, action_notes, actor_name)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -169,7 +165,7 @@ async def submit_report(
                 issue_id,
                 None,
                 "REPORTED",
-                f"Issue filed by {user_name} via AI detection: {primary_category} ({int(primary_confidence*100)}% conf).",
+                f"Issue filed by {user_name}: {primary_category} ({conf_str}).",
                 user_name
             ))
 
@@ -202,6 +198,7 @@ async def submit_report(
         "report_id": report_id,
         "issue_id": issue_id,
         "is_linked_to_existing_issue": is_duplicate,
+        "status": detection_status,
         "ai_category": primary_category,
         "ai_confidence": primary_confidence,
         "ai_detections": detections,
@@ -211,6 +208,7 @@ async def submit_report(
         "priority_score": effective_score,
         "assigned_department": dept_assigned,
         "ai_analysis": {
+            "status": detection_status,
             "category": primary_category,
             "confidence": primary_confidence,
             "severity_score": severity_score,
