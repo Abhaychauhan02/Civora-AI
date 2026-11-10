@@ -5,11 +5,26 @@
 // ==========================================================================
 
 const DEFAULT_EC2_BACKEND = "http://13.211.32.245:8000";
-const DEFAULT_RENDER_BACKEND = "https://civora-ai-poay.onrender.com";
 
 const Api = {
   // Retrieve the configured backend URL
   getBaseUrl() {
+    // 0. If directly browsing on the EC2 host, port 8000, or local development:
+    // ALWAYS use same-origin relative path ("") and wipe any dead Render setting
+    if (typeof window !== "undefined" && window.location) {
+      const h = window.location.hostname || "";
+      const p = window.location.port || "";
+      if (p === "8000" || h === "13.211.32.245" || h === "localhost" || h === "127.0.0.1") {
+        try {
+          const stored = localStorage.getItem("civora_backend_url");
+          if (stored && (stored.includes("onrender.com") || stored.includes("13.211.32.245"))) {
+            localStorage.removeItem("civora_backend_url");
+          }
+        } catch (_) {}
+        return "";
+      }
+    }
+
     // 1. Query parameter override: ?backend=http://13.211.32.245:8000
     try {
       const params = new URLSearchParams(window.location.search);
@@ -21,11 +36,16 @@ const Api = {
       }
     } catch (_) {}
 
-    // 2. Persisted user configuration in localStorage
+    // 2. Persisted user configuration in localStorage (auto-purge suspended Render URLs)
     try {
       const stored = localStorage.getItem("civora_backend_url");
       if (stored && stored.trim() !== "") {
-        return stored.trim().replace(/\/+$/, "");
+        const clean = stored.trim().replace(/\/+$/, "");
+        if (clean.includes("onrender.com")) {
+          localStorage.removeItem("civora_backend_url");
+        } else {
+          return clean;
+        }
       }
     } catch (_) {}
 
@@ -34,10 +54,11 @@ const Api = {
       return window.__CIVORA_BACKEND_URL__.trim().replace(/\/+$/, "");
     }
 
-    // 4. If running on AWS Amplify, Vercel, or any external domain:
+    // 4. If running on AWS Amplify or any external static hosting:
+    // Default directly to AWS EC2 backend
     if (typeof window !== "undefined" && window.location.hostname) {
       const h = window.location.hostname;
-      if (h !== "localhost" && h !== "127.0.0.1" && !h.includes("onrender.com")) {
+      if (h !== "localhost" && h !== "127.0.0.1" && h !== "13.211.32.245") {
         return DEFAULT_EC2_BACKEND;
       }
     }
@@ -49,7 +70,11 @@ const Api = {
   // Set and persist backend URL
   setBackendUrl(url) {
     const clean = (url || "").trim().replace(/\/+$/, "");
-    if (clean === "" || clean === window.location.origin) {
+    if (
+      clean === "" ||
+      clean === window.location.origin ||
+      (clean.includes("13.211.32.245") && (window.location.hostname === "13.211.32.245" || window.location.port === "8000"))
+    ) {
       localStorage.removeItem("civora_backend_url");
     } else {
       localStorage.setItem("civora_backend_url", clean);

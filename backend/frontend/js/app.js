@@ -170,7 +170,7 @@ const App = {
       const msg = document.getElementById("backend-offline-message");
       if (banner) banner.classList.remove("hidden");
       if (msg) {
-        msg.textContent = `API request failed at ${e.detail.base || 'current domain'}. If your backend runs on Render, configure your Render URL.`;
+        msg.textContent = `API request failed at ${e.detail.base || 'current domain'}. Click 'Set Backend URL' to test connectivity.`;
       }
     });
 
