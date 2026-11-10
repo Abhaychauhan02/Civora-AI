@@ -249,9 +249,13 @@
                   <img id="image-preview" src="#" alt="Civic Hazard Preview" class="max-h-72 rounded-lg object-contain mx-auto border border-slate-200 shadow-xs" />
                   <canvas id="bbox-canvas" class="absolute inset-0 pointer-events-none w-full h-full"></canvas>
                 </div>
-                <div class="mt-3 flex items-center justify-center gap-3">
-                  <button type="button" onclick="Citizen.resetImage()" class="px-3 py-1 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition z-20">
+                <div class="mt-3 flex items-center justify-center gap-2.5">
+                  <button type="button" onclick="Citizen.resetImage()" class="px-3 py-1 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition z-20">
                     Replace Photo
+                  </button>
+                  <button type="button" id="btn-toggle-bbox" onclick="Citizen.toggleBoundingBoxes()" class="px-3 py-1 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition z-20 flex items-center gap-1 shadow-2xs">
+                    <span id="toggle-bbox-icon">👁️</span>
+                    <span id="toggle-bbox-text">Toggle AI Overlay</span>
                   </button>
                   <span id="file-meta" class="text-xs text-slate-500 font-mono"></span>
                 </div>
@@ -297,7 +301,10 @@
               <button type="button" onclick="Citizen.selectCategory('waterlogging')" data-category="waterlogging" class="category-chip flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 text-slate-700 text-xs font-bold transition text-left shadow-2xs">
                 <span class="text-xl">🌊</span>
                 <div>
-                  <div class="font-extrabold text-xs">Waterlogging</div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-extrabold text-xs">Waterlogging</span>
+                    <span class="text-[9px] font-semibold text-slate-500 bg-slate-100 px-1 py-0.2 rounded">Routing</span>
+                  </div>
                   <div class="text-[10px] font-medium text-slate-500">Drain clog & pooling</div>
                 </div>
               </button>
@@ -312,10 +319,15 @@
                 <span class="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">3</span>
                 Verify Precise Geospatial Location
               </label>
-              <button type="button" onclick="Citizen.locateUser()" class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition shadow-2xs">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                Locate Me (GPS)
-              </button>
+              <div class="flex items-center gap-2">
+                <span id="location-telemetry-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  MANUAL PIN
+                </span>
+                <button type="button" onclick="Citizen.locateUser()" class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition shadow-2xs">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  Locate Me (GPS)
+                </button>
+              </div>
             </div>
 
             <!-- Quick Landmark Jump Chips -->
@@ -355,6 +367,36 @@
               Incident Details & Citizen Observations (Optional)
             </label>
             <textarea id="desc-input" rows="3" placeholder="Provide any additional context (e.g. hazard causing traffic slowdown, exposed wiring danger, deep crater during rainfall)..." class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"></textarea>
+          </div>
+
+          <!-- Step 5: Incident Pre-Submission Review Summary -->
+          <div class="space-y-3 p-4 rounded-xl border border-slate-200 bg-slate-50/70">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">5</span>
+                Pre-Flight Incident Verification
+              </label>
+              <span class="text-[10px] text-slate-400 font-medium">Review prior to municipal submission</span>
+            </div>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+              <div class="bg-white p-3 rounded-lg border border-slate-200/80 shadow-2xs">
+                <span class="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Hazard</span>
+                <span id="review-category-val" class="font-extrabold text-slate-900 block mt-0.5">Pothole / Road</span>
+              </div>
+              <div class="bg-white p-3 rounded-lg border border-slate-200/80 shadow-2xs">
+                <span class="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Coordinates</span>
+                <span id="review-coords-val" class="font-mono text-slate-900 text-[11px] font-bold block mt-0.5">28.61390, 77.20900</span>
+              </div>
+              <div class="bg-white p-3 rounded-lg border border-slate-200/80 shadow-2xs">
+                <span class="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Location Source</span>
+                <span id="review-source-val" class="font-bold text-blue-700 text-[11px] block mt-0.5">MANUAL PIN</span>
+              </div>
+              <div class="bg-white p-3 rounded-lg border border-slate-200/80 shadow-2xs">
+                <span class="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Estimated SLA</span>
+                <span id="review-sla-val" class="font-bold text-emerald-700 text-[11px] block mt-0.5">&lt; 48h Resolution</span>
+              </div>
+            </div>
           </div>
 
           <!-- AI Diagnostic Feedback Container (Visible after triage) -->
@@ -482,6 +524,14 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
           <span>Report New Hazard</span>
         </button>
+      </div>
+
+      <!-- Status Filter Tabs -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-semibold">
+        <button type="button" onclick="Citizen.filterMyReports('ALL')" id="filter-rep-all" class="rep-filter-btn px-3 py-1.5 rounded-lg bg-slate-900 text-white font-bold transition">All Submissions</button>
+        <button type="button" onclick="Citizen.filterMyReports('ACTIVE')" id="filter-rep-active" class="rep-filter-btn px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Active Triage</button>
+        <button type="button" onclick="Citizen.filterMyReports('IN_PROGRESS')" id="filter-rep-progress" class="rep-filter-btn px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">In Progress</button>
+        <button type="button" onclick="Citizen.filterMyReports('RESOLVED')" id="filter-rep-resolved" class="rep-filter-btn px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Resolved Proofs</button>
       </div>
 
       <!-- Reports Feed Container -->

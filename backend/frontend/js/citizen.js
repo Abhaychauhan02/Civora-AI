@@ -11,6 +11,11 @@ const Citizen = {
   currentLng: 77.2090,
   selectedCategory: "pothole",
   selectedFile: null,
+  locationSource: "MANUAL_PIN",
+  showBoundingBoxes: true,
+  cachedDetections: [],
+  cachedMyReports: [],
+  currentFilter: "ALL",
 
   init() {
     this.initMap();
@@ -31,6 +36,19 @@ const Citizen = {
         btn.className = "category-chip flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 text-slate-700 text-xs font-bold transition text-left shadow-2xs";
       }
     });
+
+    // Update Pre-Flight Review Summary
+    const catReview = document.getElementById("review-category-val");
+    const slaReview = document.getElementById("review-sla-val");
+    const catMap = {
+      pothole: { label: "Pothole / Road", sla: "< 48h Resolution" },
+      garbage: { label: "Garbage Dump", sla: "< 24h Clean-up" },
+      streetlight: { label: "Streetlight Defect", sla: "< 36h Electrical" },
+      waterlogging: { label: "Waterlogging (Routing)", sla: "< 12h Emergency Drainage" }
+    };
+    const cInfo = catMap[cat] || { label: cat.toUpperCase(), sla: "< 48h Resolution" };
+    if (catReview) catReview.textContent = cInfo.label;
+    if (slaReview) slaReview.textContent = cInfo.sla;
   },
 
   initMap() {
@@ -60,6 +78,7 @@ const Citizen = {
       const pos = e.target.getLatLng();
       this.currentLat = pos.lat;
       this.currentLng = pos.lng;
+      this.locationSource = "MANUAL_PIN";
       this.updateCoordsDisplay();
       this.reverseGeocode(this.currentLat, this.currentLng);
     });
@@ -67,6 +86,7 @@ const Citizen = {
     this.map.on("click", (e) => {
       this.currentLat = e.latlng.lat;
       this.currentLng = e.latlng.lng;
+      this.locationSource = "MANUAL_PIN";
       this.marker.setLatLng([this.currentLat, this.currentLng]);
       this.updateCoordsDisplay();
       this.reverseGeocode(this.currentLat, this.currentLng);
@@ -78,6 +98,7 @@ const Citizen = {
   jumpToLocation(lat, lng, address) {
     this.currentLat = lat;
     this.currentLng = lng;
+    this.locationSource = "LANDMARK_SEARCH";
     if (this.map && this.marker) {
       this.map.flyTo([lat, lng], 16, { animate: true, duration: 1.0 });
       this.marker.setLatLng([lat, lng]);
@@ -133,6 +154,8 @@ const Citizen = {
 
   locateUser() {
     if (!navigator.geolocation) {
+      this.locationSource = "MANUAL_PIN";
+      this.updateCoordsDisplay();
       this.fallbackIpLocate();
       return;
     }
@@ -142,6 +165,7 @@ const Citizen = {
       (pos) => {
         this.currentLat = pos.coords.latitude;
         this.currentLng = pos.coords.longitude;
+        this.locationSource = "GPS_LOCKED";
         if (this.map && this.marker) {
           this.map.flyTo([this.currentLat, this.currentLng], 16);
           this.marker.setLatLng([this.currentLat, this.currentLng]);
@@ -152,6 +176,8 @@ const Citizen = {
       },
       () => {
         // Fallback gracefully without an intrusive error toast
+        this.locationSource = "MANUAL_PIN";
+        this.updateCoordsDisplay();
         this.fallbackIpLocate();
       },
       { enableHighAccuracy: true, timeout: 6000 }
@@ -166,6 +192,7 @@ const Citizen = {
         if (data.latitude && data.longitude) {
           this.currentLat = data.latitude;
           this.currentLng = data.longitude;
+          this.locationSource = "MANUAL_PIN";
           if (this.map && this.marker) {
             this.map.flyTo([this.currentLat, this.currentLng], 14);
             this.marker.setLatLng([this.currentLat, this.currentLng]);
@@ -179,13 +206,47 @@ const Citizen = {
         }
       }
     } catch (_) {}
+    this.locationSource = "MANUAL_PIN";
+    this.updateCoordsDisplay();
     showToast("Position your pin on the map by tapping your neighborhood.", "info");
   },
 
   updateCoordsDisplay() {
     const coordEl = document.getElementById("selected-coords");
-    if (coordEl) {
-      coordEl.textContent = `${this.currentLat.toFixed(5)}, ${this.currentLng.toFixed(5)}`;
+    const reviewCoords = document.getElementById("review-coords-val");
+    const reviewSource = document.getElementById("review-source-val");
+    const telemetryPill = document.getElementById("location-telemetry-pill");
+
+    const coordStr = `${this.currentLat.toFixed(5)}, ${this.currentLng.toFixed(5)}`;
+    if (coordEl) coordEl.textContent = coordStr;
+    if (reviewCoords) reviewCoords.textContent = coordStr;
+
+    const sourceConfig = {
+      GPS_LOCKED: {
+        text: "GPS LOCKED",
+        pillCls: "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200",
+        reviewCls: "font-bold text-emerald-700 text-[11px] block mt-0.5"
+      },
+      LANDMARK_SEARCH: {
+        text: "SEARCH PIN",
+        pillCls: "text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200",
+        reviewCls: "font-bold text-purple-700 text-[11px] block mt-0.5"
+      },
+      MANUAL_PIN: {
+        text: "MANUAL PIN",
+        pillCls: "text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200",
+        reviewCls: "font-bold text-blue-700 text-[11px] block mt-0.5"
+      }
+    };
+
+    const sc = sourceConfig[this.locationSource] || sourceConfig.MANUAL_PIN;
+    if (telemetryPill) {
+      telemetryPill.className = sc.pillCls;
+      telemetryPill.textContent = sc.text;
+    }
+    if (reviewSource) {
+      reviewSource.className = sc.reviewCls;
+      reviewSource.textContent = sc.text;
     }
   },
 
@@ -280,6 +341,24 @@ const Citizen = {
     this.clearBoundingBoxes();
   },
 
+  toggleBoundingBoxes() {
+    this.showBoundingBoxes = !this.showBoundingBoxes;
+    const btnIcon = document.getElementById("toggle-bbox-icon");
+    const btnText = document.getElementById("toggle-bbox-text");
+
+    if (this.showBoundingBoxes) {
+      if (btnIcon) btnIcon.textContent = "👁️";
+      if (btnText) btnText.textContent = "Toggle AI Overlay";
+      if (this.cachedDetections && this.cachedDetections.length > 0) {
+        this.drawBoundingBoxes(this.cachedDetections);
+      }
+    } else {
+      if (btnIcon) btnIcon.textContent = "🙈";
+      if (btnText) btnText.textContent = "Overlay Hidden";
+      this.clearBoundingBoxes();
+    }
+  },
+
   clearBoundingBoxes() {
     const canvas = document.getElementById("bbox-canvas");
     if (canvas) {
@@ -291,6 +370,9 @@ const Citizen = {
   },
 
   drawBoundingBoxes(detections) {
+    this.cachedDetections = detections || [];
+    if (!this.showBoundingBoxes) return;
+
     const container = document.getElementById("bbox-container");
     const img = document.getElementById("image-preview");
     if (!container || !img || !detections || detections.length === 0) return;
@@ -401,6 +483,7 @@ const Citizen = {
     formData.append("latitude", this.currentLat.toString());
     formData.append("longitude", this.currentLng.toString());
     formData.append("category", this.selectedCategory || "pothole");
+    formData.append("location_source", this.locationSource || "MANUAL_PIN");
     formData.append("address", addressInput ? addressInput.value.trim() : "");
     formData.append("description", descInput ? descInput.value.trim() : "");
 
@@ -539,27 +622,9 @@ const Citizen = {
 
     try {
       const res = await Api.getMyReports();
-      const reports = res.reports || [];
-      if (countEl) countEl.textContent = reports.length.toString();
-
-      if (reports.length === 0) {
-        listEl.innerHTML = `
-          <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
-            <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            </div>
-            <h3 class="text-sm font-bold text-slate-900">No Submissions Found</h3>
-            <p class="text-xs text-slate-500 max-w-sm mx-auto">You have not submitted any civic incident reports yet. Use the reporting portal to submit your first report.</p>
-            <button onclick="App.switchTab('report')" class="px-4 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-              Report an Issue
-            </button>
-          </div>
-        `;
-        return;
-      }
-
-      listEl.innerHTML = reports.map(r => this.renderReportCard(r)).join("");
-
+      this.cachedMyReports = res.reports || [];
+      if (countEl) countEl.textContent = this.cachedMyReports.length.toString();
+      this.renderFilteredMyReports();
     } catch (err) {
       console.error("Failed to load reports:", err);
       listEl.innerHTML = `
@@ -568,6 +633,58 @@ const Citizen = {
         </div>
       `;
     }
+  },
+
+  filterMyReports(filterType) {
+    this.currentFilter = filterType;
+    const filterBtns = {
+      ALL: "filter-rep-all",
+      ACTIVE: "filter-rep-active",
+      IN_PROGRESS: "filter-rep-progress",
+      RESOLVED: "filter-rep-resolved"
+    };
+
+    Object.keys(filterBtns).forEach((k) => {
+      const el = document.getElementById(filterBtns[k]);
+      if (el) {
+        if (k === filterType) {
+          el.className = "rep-filter-btn px-3 py-1.5 rounded-lg bg-slate-900 text-white font-bold transition";
+        } else {
+          el.className = "rep-filter-btn px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition";
+        }
+      }
+    });
+
+    this.renderFilteredMyReports();
+  },
+
+  renderFilteredMyReports() {
+    const listEl = document.getElementById("my-reports-list");
+    if (!listEl) return;
+
+    let filtered = this.cachedMyReports || [];
+    if (this.currentFilter === "ACTIVE") {
+      filtered = filtered.filter(r => ["REPORTED", "PENDING"].includes(r.issue_status));
+    } else if (this.currentFilter === "IN_PROGRESS") {
+      filtered = filtered.filter(r => ["ASSIGNED", "IN_PROGRESS"].includes(r.issue_status));
+    } else if (this.currentFilter === "RESOLVED") {
+      filtered = filtered.filter(r => r.issue_status === "RESOLVED");
+    }
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = `
+        <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          </div>
+          <h3 class="text-sm font-bold text-slate-900">No Submissions Found</h3>
+          <p class="text-xs text-slate-500 max-w-sm mx-auto">No reports match the current "${this.currentFilter}" filter.</p>
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(r => this.renderReportCard(r)).join("");
   },
 
   renderReportCard(r) {
