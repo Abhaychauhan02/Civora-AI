@@ -4,10 +4,12 @@
 // local development, live health pinging & cold-start recovery
 // ==========================================================================
 
+const DEFAULT_RENDER_BACKEND = "https://civora-ai-poay.onrender.com";
+
 const Api = {
   // Retrieve the configured backend URL
   getBaseUrl() {
-    // 1. Query parameter override: ?backend=https://civora-ai.onrender.com
+    // 1. Query parameter override: ?backend=https://civora-ai-poay.onrender.com
     try {
       const params = new URLSearchParams(window.location.search);
       const queryBackend = params.get("backend") || params.get("api");
@@ -31,7 +33,16 @@ const Api = {
       return window.__CIVORA_BACKEND_URL__.trim().replace(/\/+$/, "");
     }
 
-    // 4. Default: Same-origin relative path ("")
+    // 4. If running on Vercel or external preview domain, automatically default to user's Render backend
+    if (typeof window !== "undefined" && window.location.hostname && (
+      window.location.hostname.includes("vercel.app") ||
+      window.location.hostname.includes("github.io") ||
+      window.location.hostname.includes("netlify.app")
+    )) {
+      return DEFAULT_RENDER_BACKEND;
+    }
+
+    // 5. Default: Same-origin relative path ("")
     return "";
   },
 

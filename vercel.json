@@ -1,18 +1,16 @@
 {
-  "version": 2,
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "frontend",
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/(css|js|uploads)/(.*)",
-      "destination": "/frontend/$1/$2"
+      "source": "/api/(.*)",
+      "destination": "https://civora-ai-poay.onrender.com/api/$1"
     },
     {
-      "source": "/(manifest.json|sw.js|favicon.ico)",
-      "destination": "/frontend/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/frontend/index.html"
+      "source": "/uploads/(.*)",
+      "destination": "https://civora-ai-poay.onrender.com/uploads/$1"
     }
   ]
 }

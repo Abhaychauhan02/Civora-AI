@@ -1,0 +1,21 @@
+# Vercel Ignore File
+# Ignore backend Python files, heavy AI models, and local databases
+# so Vercel only deploys the static frontend Progressive Web App.
+
+backend/
+src/
+datasets/
+models/
+notebooks/
+runs/
+tests/
+uploads/
+temp_uploads/
+venv/
+api/
+*.py
+*.pt
+*.db
+requirements.txt
+Dockerfile
+render.yaml
