@@ -4,12 +4,13 @@
 // local development, live health pinging & cold-start recovery
 // ==========================================================================
 
+const DEFAULT_EC2_BACKEND = "http://13.211.32.245:8000";
 const DEFAULT_RENDER_BACKEND = "https://civora-ai-poay.onrender.com";
 
 const Api = {
   // Retrieve the configured backend URL
   getBaseUrl() {
-    // 1. Query parameter override: ?backend=https://civora-ai-poay.onrender.com
+    // 1. Query parameter override: ?backend=http://13.211.32.245:8000
     try {
       const params = new URLSearchParams(window.location.search);
       const queryBackend = params.get("backend") || params.get("api");
@@ -33,11 +34,11 @@ const Api = {
       return window.__CIVORA_BACKEND_URL__.trim().replace(/\/+$/, "");
     }
 
-    // 4. If running on AWS Amplify, Vercel, Netlify, or any external domain other than Render/localhost:
+    // 4. If running on AWS Amplify, Vercel, or any external domain:
     if (typeof window !== "undefined" && window.location.hostname) {
       const h = window.location.hostname;
       if (h !== "localhost" && h !== "127.0.0.1" && !h.includes("onrender.com")) {
-        return DEFAULT_RENDER_BACKEND;
+        return DEFAULT_EC2_BACKEND;
       }
     }
 
