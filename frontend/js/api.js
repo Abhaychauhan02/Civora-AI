@@ -33,13 +33,12 @@ const Api = {
       return window.__CIVORA_BACKEND_URL__.trim().replace(/\/+$/, "");
     }
 
-    // 4. If running on Vercel or external preview domain, automatically default to user's Render backend
-    if (typeof window !== "undefined" && window.location.hostname && (
-      window.location.hostname.includes("vercel.app") ||
-      window.location.hostname.includes("github.io") ||
-      window.location.hostname.includes("netlify.app")
-    )) {
-      return DEFAULT_RENDER_BACKEND;
+    // 4. If running on AWS Amplify, Vercel, Netlify, or any external domain other than Render/localhost:
+    if (typeof window !== "undefined" && window.location.hostname) {
+      const h = window.location.hostname;
+      if (h !== "localhost" && h !== "127.0.0.1" && !h.includes("onrender.com")) {
+        return DEFAULT_RENDER_BACKEND;
+      }
     }
 
     // 5. Default: Same-origin relative path ("")
