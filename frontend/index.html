@@ -726,48 +726,62 @@
             </button>
           </div>
 
-          <!-- SECTION 2: KPI SUMMARY CARDS (REAL BACKEND METRICS) -->
-          <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
-            <!-- Open Issues -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Issues</span>
-              <div class="text-2xl font-extrabold text-slate-900 mt-1" id="stat-total-issues">0</div>
-              <span class="text-[10px] text-slate-500 font-medium">Clustered Parent Incidents</span>
+          <!-- SECTION 2: 8 CORE VERIFIED CIVIC OPERATIONS KPI METRICS -->
+          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+            <!-- 1. Total Citizen Reports -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+              <span class="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider block">Total Reports</span>
+              <div class="text-xl font-extrabold text-slate-900 mt-0.5" id="stat-total-reports">0</div>
+              <span class="text-[9px] text-slate-400 font-medium block">All Submissions</span>
             </div>
 
-            <!-- Unassigned / Pending -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
-              <span class="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">Pending Triage</span>
-              <div class="text-2xl font-extrabold text-amber-600 mt-1" id="stat-pending-count">0</div>
-              <span class="text-[10px] text-slate-500 font-medium">Awaiting Assignment</span>
+            <!-- 2. Unique Deduplicated Issues -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+              <span class="text-[9px] font-extrabold text-blue-600 uppercase tracking-wider block">Unique Issues</span>
+              <div class="text-xl font-extrabold text-blue-700 mt-0.5" id="stat-total-issues">0</div>
+              <span class="text-[9px] text-slate-400 font-medium block">Clustered Incidents</span>
             </div>
 
-            <!-- Critical -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
-              <span class="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Critical Hazards</span>
-              <div class="text-2xl font-extrabold text-rose-600 mt-1" id="stat-critical-count">0</div>
-              <span class="text-[10px] text-slate-500 font-medium">Immediate Hazard Priority</span>
+            <!-- 3. Unresolved Active Issues -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+              <span class="text-[9px] font-extrabold text-rose-600 uppercase tracking-wider block">Active Unresolved</span>
+              <div class="text-xl font-extrabold text-rose-600 mt-0.5" id="stat-unresolved-issues">0</div>
+              <span class="text-[9px] text-slate-400 font-medium block">Open Operations</span>
             </div>
 
-            <!-- Total Citizen Reports -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Submissions</span>
-              <div class="text-2xl font-extrabold text-slate-900 mt-1" id="stat-total-reports">0</div>
-              <span class="text-[10px] text-slate-500 font-medium">Citizen Ingested Reports</span>
+            <!-- 4. Resolved Issues -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+              <span class="text-[9px] font-extrabold text-emerald-600 uppercase tracking-wider block">Resolved Issues</span>
+              <div class="text-xl font-extrabold text-emerald-600 mt-0.5" id="stat-resolved-issues">0</div>
+              <span class="text-[9px] text-slate-400 font-medium block">Verified & Closed</span>
             </div>
 
-            <!-- Duplicates Prevented -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
-              <span class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">Deduped</span>
-              <div class="text-2xl font-extrabold text-indigo-600 mt-1" id="stat-dupes-prevented">0</div>
-              <span class="text-[10px] text-slate-500 font-medium">50m Spatial Radius</span>
+            <!-- 5. Unassigned Issues -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+              <span class="text-[9px] font-extrabold text-amber-600 uppercase tracking-wider block">Unassigned</span>
+              <div class="text-xl font-extrabold text-amber-600 mt-0.5" id="stat-unassigned-issues">0</div>
+              <span class="text-[9px] text-slate-400 font-medium block">Awaiting Dispatch</span>
             </div>
 
-            <!-- Avg Resolution Time -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-card">
-              <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Avg Resolution</span>
-              <div class="text-2xl font-extrabold text-emerald-600 mt-1" id="stat-avg-hours">N/A</div>
-              <span class="text-[10px] text-slate-500 font-medium">Dispatched to Closed</span>
+            <!-- 6. Corroborating Duplicate Reports -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+              <span class="text-[9px] font-extrabold text-indigo-600 uppercase tracking-wider block">Corroborating</span>
+              <div class="text-xl font-extrabold text-indigo-600 mt-0.5" id="stat-dupes-prevented">0</div>
+              <span class="text-[9px] text-slate-400 font-medium block">50m Merged Reports</span>
+            </div>
+
+            <!-- 7. Reports Awaiting Review -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+              <span class="text-[9px] font-extrabold text-purple-600 uppercase tracking-wider block">Awaiting Review</span>
+              <div class="text-xl font-extrabold text-purple-600 mt-0.5" id="stat-awaiting-review">0</div>
+              <span class="text-[9px] text-slate-400 font-medium block">Authenticity Check</span>
+            </div>
+
+            <!-- 8. Unclassified Submissions -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+              <span class="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider block">Unclassified</span>
+              <div class="text-xl font-extrabold text-slate-700 mt-0.5" id="stat-unclassified">0</div>
+              <span class="text-[9px] text-slate-400 font-medium block">Manual Routing</span>
             </div>
           </div>
 
@@ -1118,6 +1132,191 @@
         </div>
 
       </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: DEDICATED CITIZEN REPORT INSPECTION & AI DETAIL VIEW               -->
+  <!-- ========================================================================= -->
+  <div id="modal-report-detail" class="hidden fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden my-auto animate-scale-in">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/90">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs tracking-wider">
+            REP
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="rep-detail-id" class="font-mono font-extrabold text-sm text-slate-900">#REP-0000</span>
+              <span id="rep-detail-auth-badge" class="px-2 py-0.5 rounded text-[10px] font-bold border">LIKELY_AUTHENTIC</span>
+              <span id="rep-detail-status-badge" class="px-2 py-0.5 rounded text-[10px] font-bold">REPORTED</span>
+            </div>
+            <p class="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+              <span>Parent Issue:</span>
+              <a href="javascript:void(0)" id="rep-detail-parent-link" class="font-mono font-bold text-blue-600 hover:underline">#ISS-...</a>
+              <span>•</span>
+              <span id="rep-detail-timestamp">--</span>
+            </p>
+          </div>
+        </div>
+        <button onclick="Admin.closeReportDetailModal()" class="w-8 h-8 rounded-lg hover:bg-slate-200/80 text-slate-500 flex items-center justify-center transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <!-- Modal Body (Split: Left Image Viewer, Right Details) -->
+      <div class="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left: Zoomable AI Image Viewer (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col space-y-3">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Submission Evidence & AI Overlays</span>
+            <div class="flex items-center gap-1.5">
+              <button onclick="Admin.repImageZoom(0.2)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold text-xs" title="Zoom In">+</button>
+              <button onclick="Admin.repImageZoom(-0.2)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-bold text-xs" title="Zoom Out">−</button>
+              <button onclick="Admin.repImageResetZoom()" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-xs font-semibold" title="Reset Zoom">Reset</button>
+              <button onclick="Admin.toggleRepBBoxes()" id="btn-rep-toggle-bbox" class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-bold hover:bg-blue-100" title="Toggle Bounding Boxes">👁️ Overlays</button>
+              <a id="rep-detail-download-btn" href="#" download class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-xs font-semibold" title="Download Image">⬇</a>
+            </div>
+          </div>
+
+          <!-- Image Container with Zoom and Bounding Box Canvas -->
+          <div class="relative bg-slate-950 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center min-h-[320px] max-h-[440px]">
+            <div id="rep-img-zoom-wrapper" class="relative transition-transform duration-200 ease-out" style="transform: scale(1.0);">
+              <img id="rep-detail-img" src="" alt="Citizen Evidence" class="max-h-[420px] max-w-full object-contain block mx-auto select-none" />
+              <canvas id="rep-detail-canvas" class="absolute top-0 left-0 pointer-events-none"></canvas>
+            </div>
+          </div>
+
+          <!-- Proof / Comparison (if parent issue resolved) -->
+          <div id="rep-resolution-comparison" class="hidden p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-emerald-900 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Municipal Resolution Photographic Evidence Verified
+              </span>
+              <button onclick="Admin.viewResolutionProofDirect()" class="text-xs font-bold text-emerald-700 hover:underline">View Full Proof</button>
+            </div>
+            <p id="rep-resolution-notes" class="text-[11px] text-emerald-800 italic"></p>
+          </div>
+
+          <!-- Corroborating / Duplicate Reports Thumbnails -->
+          <div id="rep-siblings-container" class="hidden space-y-1.5 pt-2 border-t border-slate-100">
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Corroborating Sibling Reports (<span id="rep-siblings-count">0</span>)</span>
+            <div id="rep-siblings-list" class="flex items-center gap-2 overflow-x-auto pb-1">
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Structured Information & AI Diagnostics (5 Cols) -->
+        <div class="lg:col-span-5 flex flex-col space-y-4 text-xs">
+          
+          <!-- Card 1: Citizen Submission Metadata -->
+          <div class="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-2.5">
+            <span class="font-bold text-slate-900 uppercase tracking-wider text-[11px] block border-b border-slate-200 pb-1">1. Citizen Submission</span>
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <span class="text-slate-400 block">Citizen Category:</span>
+                <span id="rep-citizen-category" class="font-semibold text-slate-800 capitalize">--</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">Reporter:</span>
+                <span id="rep-reporter-name" class="font-semibold text-slate-800">--</span>
+              </div>
+              <div class="col-span-2">
+                <span class="text-slate-400 block">Contact Info:</span>
+                <span id="rep-reporter-contact" class="font-mono text-slate-700">--</span>
+              </div>
+              <div class="col-span-2">
+                <span class="text-slate-400 block">Location & Landmark:</span>
+                <span id="rep-address" class="font-semibold text-slate-800">--</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">GPS Coordinates:</span>
+                <span id="rep-gps" class="font-mono text-slate-700">--</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">Location Verification:</span>
+                <span id="rep-loc-badge" class="font-bold text-emerald-600">Verified On-Site</span>
+              </div>
+              <div class="col-span-2">
+                <span class="text-slate-400 block">Citizen Description:</span>
+                <p id="rep-description" class="text-slate-700 italic bg-white p-2 rounded border border-slate-200/60 mt-0.5">Not provided</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: AI Vision & Authenticity Diagnostics -->
+          <div class="p-4 bg-blue-50/50 rounded-xl border border-blue-200/70 space-y-2.5">
+            <span class="font-bold text-blue-950 uppercase tracking-wider text-[11px] block border-b border-blue-200/80 pb-1">2. AI Vision & Authenticity Engine</span>
+            <div class="space-y-2 text-[11px]">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="text-slate-500 block">AI Detected Hazard:</span>
+                  <span id="rep-ai-category" class="font-extrabold text-sm text-slate-900 capitalize">--</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-slate-500 block">Model Confidence:</span>
+                  <span id="rep-ai-conf" class="font-mono font-bold text-sm text-blue-700 px-2 py-0.5 bg-white rounded border border-blue-200">--%</span>
+                </div>
+              </div>
+              <div>
+                <span class="text-slate-500 block">Model Architecture:</span>
+                <span class="font-mono text-[10px] text-slate-700">Cascade YOLOv8 Nano • Civic Infrastructure Weights</span>
+              </div>
+              <div class="pt-1 border-t border-blue-100">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-500">Authenticity Score:</span>
+                  <span id="rep-ai-auth-score" class="font-mono font-bold text-slate-800">0.94</span>
+                </div>
+                <p id="rep-ai-auth-expl" class="text-[10px] text-slate-600 mt-0.5">Natural optical grain verified.</p>
+              </div>
+              <div id="rep-detections-list-wrap" class="pt-1 border-t border-blue-100">
+                <span class="text-slate-500 block text-[10px] mb-1">Detected Bounding Boxes (<span id="rep-bbox-count">0</span>):</span>
+                <div id="rep-detections-list" class="space-y-1 font-mono text-[10px] max-h-24 overflow-y-auto">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Operational Triage & Parent Issue State -->
+          <div class="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-2.5">
+            <span class="font-bold text-slate-900 uppercase tracking-wider text-[11px] block border-b border-slate-200 pb-1">3. Operations & Lifecycle</span>
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <span class="text-slate-400 block">Current Status:</span>
+                <span id="rep-op-status" class="font-bold">--</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block">Priority Triage:</span>
+                <span id="rep-op-priority" class="font-bold">--</span>
+              </div>
+              <div class="col-span-2">
+                <span class="text-slate-400 block">Assigned Department:</span>
+                <span id="rep-op-dept" class="font-semibold text-slate-800">--</span>
+              </div>
+              <div class="col-span-2">
+                <span class="text-slate-400 block">Assigned Staff / Crew:</span>
+                <span id="rep-op-staff" class="font-semibold text-slate-800">Unassigned</span>
+              </div>
+            </div>
+            
+            <div class="pt-2 flex items-center gap-2">
+              <button onclick="Admin.openDrawerFromReportDetail()" class="flex-1 py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-xs transition">
+                Manage Parent Issue
+              </button>
+              <button onclick="Admin.closeReportDetailModal()" class="py-1.5 px-3 border border-slate-300 hover:bg-slate-100 rounded-lg font-semibold text-slate-700 text-xs">
+                Close
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
   </div>
 

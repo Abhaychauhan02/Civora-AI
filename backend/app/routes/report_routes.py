@@ -241,13 +241,16 @@ def list_reports(
         cursor = conn.cursor()
         query = """
             SELECT 
-                r.id, r.issue_id, r.image_url, r.latitude, r.longitude, r.address,
+                r.id, r.issue_id, r.user_id, r.image_url, r.latitude, r.longitude, r.address,
                 r.description, r.ai_category, r.ai_confidence, r.ai_detections_json,
                 r.authenticity_status, r.severity_score, r.created_at,
                 i.title as issue_title, i.status as issue_status,
-                i.priority_level as issue_priority, i.assigned_department
+                i.priority_level as issue_priority, i.priority_score as issue_priority_score,
+                i.assigned_department, i.assigned_to,
+                u.full_name as reporter_name, u.email as reporter_email
             FROM reports r
             LEFT JOIN issues i ON r.issue_id = i.id
+            LEFT JOIN users u ON r.user_id = u.id
             WHERE 1=1
         """
         params = []
@@ -303,16 +306,29 @@ def get_my_reports(user: dict = Depends(require_auth)):
 @router.get("/{report_id}")
 def get_report_details(report_id: str, current_user: Optional[dict] = Depends(get_current_user)):
     """
-    Retrieves single report details.
-    Enforces authorization: If report was filed by an authenticated user, only the owner or an ADMIN
-    can view sensitive reporter metadata.
+    Retrieves comprehensive single report details including:
+    - Complete citizen submission metadata (coordinates, timestamp, address, description, photo)
+    - Full AI vision detections, real confidence %, authenticity score & explanations
+    - Parent issue operational state (priority score, department assignment, staff, resolution proof)
+    - Sibling corroborating reports under the same deduplicated issue
+    - Complete chronological timeline / audit trail
+    Enforces authorization: Reporter contact info is only visible to ADMIN or the reporting citizen.
     """
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT r.*, i.status as issue_status, i.title as issue_title
+            SELECT 
+                r.*,
+                i.title as issue_title, i.status as issue_status, i.category as issue_category,
+                i.priority_score as issue_priority_score, i.priority_level as issue_priority_level,
+                i.assigned_to as issue_assigned_to, i.assigned_department as issue_assigned_department,
+                i.resolution_image_url as issue_resolution_image_url, i.resolution_notes as issue_resolution_notes,
+                i.resolved_at as issue_resolved_at, i.created_at as issue_created_at,
+                i.report_count as issue_report_count,
+                u.full_name as reporter_name, u.email as reporter_email, u.phone as reporter_phone
             FROM reports r
             LEFT JOIN issues i ON r.issue_id = i.id
+            LEFT JOIN users u ON r.user_id = u.id
             WHERE r.id = ?
         """, (report_id,))
         row = cursor.fetchone()
@@ -320,16 +336,50 @@ def get_report_details(report_id: str, current_user: Optional[dict] = Depends(ge
             raise HTTPException(status_code=404, detail="Report not found")
         data = dict(row)
 
-        # IDOR protection: if user is not the reporter and not an admin, sanitize user_id
-        if data.get("user_id"):
-            is_owner = current_user and current_user.get("id") == data["user_id"]
-            is_admin = current_user and current_user.get("role") == "ADMIN"
-            if not is_owner and not is_admin:
-                data["user_id"] = None
+        is_owner = current_user and current_user.get("id") == data.get("user_id")
+        is_admin = current_user and current_user.get("role") == "ADMIN"
 
+        # Privacy / IDOR protection: redact contact details if not owner or admin
+        if not is_owner and not is_admin:
+            data["user_id"] = None
+            data["reporter_name"] = "Anonymous Citizen"
+            data["reporter_email"] = None
+            data["reporter_phone"] = None
+        else:
+            if not data.get("reporter_name"):
+                data["reporter_name"] = "Community Citizen"
+
+        # Parse detections JSON
         if data.get("ai_detections_json"):
             try:
                 data["detections"] = json.loads(data["ai_detections_json"])
             except Exception:
                 data["detections"] = []
+        else:
+            data["detections"] = []
+
+        # Fetch sibling corroborating reports sharing the same parent issue
+        siblings = []
+        if data.get("issue_id"):
+            cursor.execute("""
+                SELECT id, image_url, ai_category, ai_confidence, authenticity_status, created_at, address
+                FROM reports
+                WHERE issue_id = ? AND id != ?
+                ORDER BY created_at DESC
+            """, (data["issue_id"], report_id))
+            siblings = [dict(s) for s in cursor.fetchall()]
+        data["sibling_reports"] = siblings
+
+        # Fetch audit timeline for the issue
+        timeline = []
+        if data.get("issue_id"):
+            cursor.execute("""
+                SELECT id, from_status, to_status, action_notes, actor_name, created_at
+                FROM issue_timeline
+                WHERE issue_id = ?
+                ORDER BY created_at ASC
+            """, (data["issue_id"],))
+            timeline = [dict(t) for t in cursor.fetchall()]
+        data["timeline"] = timeline
+
         return {"report": data}

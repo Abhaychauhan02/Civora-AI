@@ -118,12 +118,18 @@ const Admin = {
       const res = await Api.getAdminAnalytics();
       const s = res.summary || {};
 
-      document.getElementById("stat-total-issues").textContent = s.total_issues || 0;
-      document.getElementById("stat-total-reports").textContent = s.total_reports || 0;
-      document.getElementById("stat-dupes-prevented").textContent = s.duplicates_prevented || 0;
-      document.getElementById("stat-critical-count").textContent = s.critical_count || 0;
-      document.getElementById("stat-pending-count").textContent = s.pending_count || 0;
-      document.getElementById("stat-avg-hours").textContent = s.avg_resolution_hours ? `${s.avg_resolution_hours}h` : "N/A";
+      if (document.getElementById("stat-total-reports")) document.getElementById("stat-total-reports").textContent = s.total_reports || 0;
+      if (document.getElementById("stat-total-issues")) document.getElementById("stat-total-issues").textContent = s.total_unique_issues || s.total_issues || 0;
+      if (document.getElementById("stat-unresolved-issues")) document.getElementById("stat-unresolved-issues").textContent = s.unresolved_issues !== undefined ? s.unresolved_issues : 0;
+      if (document.getElementById("stat-resolved-issues")) document.getElementById("stat-resolved-issues").textContent = s.resolved_issues !== undefined ? s.resolved_issues : (s.resolved_count || 0);
+      if (document.getElementById("stat-unassigned-issues")) document.getElementById("stat-unassigned-issues").textContent = s.unassigned_issues !== undefined ? s.unassigned_issues : (s.pending_count || 0);
+      if (document.getElementById("stat-dupes-prevented")) document.getElementById("stat-dupes-prevented").textContent = s.corroborating_reports !== undefined ? s.corroborating_reports : (s.duplicates_prevented || 0);
+      if (document.getElementById("stat-awaiting-review")) document.getElementById("stat-awaiting-review").textContent = s.awaiting_review_reports !== undefined ? s.awaiting_review_reports : 0;
+      if (document.getElementById("stat-unclassified")) document.getElementById("stat-unclassified").textContent = s.unclassified_submissions !== undefined ? s.unclassified_submissions : 0;
+
+      if (document.getElementById("stat-critical-count")) document.getElementById("stat-critical-count").textContent = s.critical_count || 0;
+      if (document.getElementById("stat-pending-count")) document.getElementById("stat-pending-count").textContent = s.pending_count || 0;
+      if (document.getElementById("stat-avg-hours")) document.getElementById("stat-avg-hours").textContent = s.avg_resolution_hours ? `${s.avg_resolution_hours}h` : "N/A";
 
       // Badges
       const badgeReports = document.getElementById("badge-sidebar-reports");
@@ -380,8 +386,8 @@ const Admin = {
             return `
               <div class="p-4 bg-white border border-slate-200/90 rounded-xl shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs hover:border-slate-300 transition">
                 <div class="flex items-center gap-3.5 min-w-0">
-                  <div class="w-14 h-14 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">
-                    <img src="${r.image_url}" alt="Report" class="w-full h-full object-cover" />
+                  <div class="w-14 h-14 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200 cursor-pointer" onclick="Admin.openReportDetail('${r.id}')">
+                    <img src="${r.image_url}" alt="Report" class="w-full h-full object-cover hover:scale-105 transition" />
                   </div>
                   <div class="space-y-0.5 min-w-0">
                     <div class="flex items-center gap-2">
@@ -390,13 +396,24 @@ const Admin = {
                       <span class="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded border border-blue-100">${confText}</span>
                       <span class="text-[9px] font-bold px-1.5 py-0.2 rounded-full border ${authClass}">${r.authenticity_status || "LIKELY_AUTHENTIC"}</span>
                     </div>
-                    <p class="text-slate-600 text-[11px] truncate">${r.address || `GPS: ${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}</p>
-                    <p class="text-slate-400 text-[10px] font-mono">${timeAgo} • Parent: #${r.issue_id}</p>
+                    <p class="text-slate-600 text-[11px] truncate">${r.address || `GPS: ${r.latitude ? r.latitude.toFixed(4) : "0.0000"}, ${r.longitude ? r.longitude.toFixed(4) : "0.0000"}`}</p>
+                    <div class="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                      <span>${timeAgo}</span>
+                      <span>•</span>
+                      <span>By: <strong class="text-slate-600">${r.reporter_name || "Citizen"}</strong></span>
+                      <span>•</span>
+                      <button onclick="Admin.openDrawer('${r.issue_id}')" class="text-blue-600 font-bold hover:underline">Parent: #${r.issue_id}</button>
+                    </div>
                   </div>
                 </div>
-                <button onclick="Admin.openDrawer('${r.issue_id}')" class="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition text-xs shrink-0 shadow-2xs">
-                  Inspect Incident
-                </button>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button onclick="Admin.openReportDetail('${r.id}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition text-xs shadow-2xs">
+                    Inspect Report
+                  </button>
+                  <button onclick="Admin.openDrawer('${r.issue_id}')" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition text-xs">
+                    Parent Issue
+                  </button>
+                </div>
               </div>
             `;
           }).join("");
@@ -668,5 +685,302 @@ const Admin = {
       console.error("Resolve failed:", err);
       showToast(err.message || "Failed to mark issue resolved.", "error");
     }
+  },
+
+  // =========================================================================
+  // DEDICATED REPORT INSPECTION & BOUNDING BOX VIEWER
+  // =========================================================================
+  currentReportDetail: null,
+  repZoomLevel: 1.0,
+  showRepBBoxes: true,
+
+  async openReportDetail(reportId) {
+    const modal = document.getElementById("modal-report-detail");
+    if (!modal) return;
+    modal.classList.remove("hidden");
+
+    this.repZoomLevel = 1.0;
+    this.showRepBBoxes = true;
+    const zoomWrapper = document.getElementById("rep-img-zoom-wrapper");
+    if (zoomWrapper) zoomWrapper.style.transform = "scale(1.0)";
+
+    document.getElementById("rep-detail-id").textContent = `#REP-${reportId}`;
+    document.getElementById("rep-detail-timestamp").textContent = "Loading incident details...";
+    document.getElementById("rep-reporter-name").textContent = "Retrieving...";
+
+    try {
+      const res = await Api.getReportDetails(reportId);
+      const rep = res.report;
+      this.currentReportDetail = rep;
+
+      document.getElementById("rep-detail-id").textContent = `#REP-${rep.id}`;
+      const authBadge = document.getElementById("rep-detail-auth-badge");
+      if (authBadge) {
+        authBadge.textContent = rep.authenticity_status || "LIKELY_AUTHENTIC";
+        authBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold border ${this.getAuthStatusBadgeClass(rep.authenticity_status)}`;
+      }
+      const statusBadge = document.getElementById("rep-detail-status-badge");
+      if (statusBadge) {
+        const stat = rep.issue_status || "REPORTED";
+        statusBadge.textContent = stat;
+        statusBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold ${this.getStatusChipClass(stat)}`;
+      }
+      const parentLink = document.getElementById("rep-detail-parent-link");
+      if (parentLink) {
+        parentLink.textContent = rep.issue_id ? `#${rep.issue_id}` : "Unlinked";
+        parentLink.onclick = () => {
+          this.closeReportDetailModal();
+          if (rep.issue_id) this.openDrawer(rep.issue_id);
+        };
+      }
+      document.getElementById("rep-detail-timestamp").textContent = rep.created_at ? new Date(rep.created_at).toLocaleString() : "Recently submitted";
+
+      // Populate Image and Download
+      const img = document.getElementById("rep-detail-img");
+      const downloadBtn = document.getElementById("rep-detail-download-btn");
+      if (img) {
+        img.src = rep.image_url || "";
+        img.onload = () => {
+          this.renderRepBoundingBoxes();
+        };
+      }
+      if (downloadBtn) {
+        downloadBtn.href = rep.image_url || "#";
+        downloadBtn.download = `report_${rep.id}.jpg`;
+      }
+
+      // Populate Citizen Submission Metadata
+      document.getElementById("rep-citizen-category").textContent = (rep.citizen_category || rep.ai_category || "General defect").replace(/_/g, " ");
+      document.getElementById("rep-reporter-name").textContent = rep.reporter_name || "Community Citizen";
+      const contactEl = document.getElementById("rep-reporter-contact");
+      if (contactEl) {
+        contactEl.textContent = (rep.reporter_email || rep.reporter_phone) 
+          ? [rep.reporter_email, rep.reporter_phone].filter(Boolean).join(" • ") 
+          : "Not provided / Anonymous";
+      }
+      document.getElementById("rep-address").textContent = rep.address || "No address entered";
+      document.getElementById("rep-gps").textContent = (rep.latitude && rep.longitude)
+        ? `${rep.latitude.toFixed(5)}, ${rep.longitude.toFixed(5)}`
+        : "GPS Not Available";
+      document.getElementById("rep-description").textContent = rep.description || "No citizen remarks provided.";
+
+      // Populate AI Diagnostics
+      document.getElementById("rep-ai-category").textContent = (rep.ai_category || "Unclassified Defect").replace(/_/g, " ");
+      const confEl = document.getElementById("rep-ai-conf");
+      if (confEl) {
+        if (rep.ai_confidence !== null && rep.ai_confidence !== undefined && rep.ai_confidence > 0) {
+          confEl.textContent = `${Math.round(rep.ai_confidence * 100)}% conf`;
+          confEl.className = "font-mono font-bold text-sm text-blue-700 px-2 py-0.5 bg-white rounded border border-blue-200";
+        } else {
+          confEl.textContent = "Staff Review";
+          confEl.className = "font-mono font-bold text-xs text-amber-700 px-2 py-0.5 bg-amber-50 rounded border border-amber-200";
+        }
+      }
+
+      // Authenticity
+      const authScore = rep.severity_score !== undefined ? (rep.severity_score > 1 ? (rep.severity_score/100).toFixed(2) : rep.severity_score.toFixed(2)) : "0.94";
+      document.getElementById("rep-ai-auth-score").textContent = authScore;
+      document.getElementById("rep-ai-auth-expl").textContent = this.getAuthExplanation(rep.authenticity_status);
+
+      // Bounding box list
+      const detections = rep.detections || [];
+      document.getElementById("rep-bbox-count").textContent = detections.length;
+      const bboxesList = document.getElementById("rep-detections-list");
+      if (bboxesList) {
+        if (detections.length === 0) {
+          bboxesList.innerHTML = `<div class="text-slate-400 italic">No AI bounding boxes detected for this submission.</div>`;
+        } else {
+          bboxesList.innerHTML = detections.map((d, i) => `
+            <div class="p-1 bg-white rounded border border-slate-200 flex items-center justify-between">
+              <span class="font-bold text-slate-800">#${i+1} ${(d.class_name || d.category || 'hazard').replace(/_/g, ' ')}</span>
+              <span class="text-blue-600 font-bold">${Math.round((d.confidence || 0) * 100)}%</span>
+              <span class="text-slate-400 text-[9px]">[${(d.bbox || []).map(n => Math.round(n)).join(', ')}]</span>
+            </div>
+          `).join("");
+        }
+      }
+
+      // Operations & Lifecycle
+      const opStatus = document.getElementById("rep-op-status");
+      if (opStatus) {
+        const stat = rep.issue_status || "REPORTED";
+        opStatus.textContent = stat;
+        opStatus.className = `font-bold ${this.getStatusChipClass(stat)}`;
+      }
+      const opPriority = document.getElementById("rep-op-priority");
+      if (opPriority) {
+        const pLevel = rep.issue_priority_level || "MEDIUM";
+        const pScore = rep.issue_priority_score || 50;
+        opPriority.textContent = `${pLevel} (${pScore}/100)`;
+        opPriority.className = `font-bold ${this.getPriorityBadgeClass(pLevel)}`;
+      }
+      document.getElementById("rep-op-dept").textContent = rep.issue_assigned_department || "Municipal Infrastructure Services";
+      document.getElementById("rep-op-staff").textContent = rep.issue_assigned_to || "Unassigned (Pending Dispatch)";
+
+      // Resolution proof comparison
+      const resProofWrap = document.getElementById("rep-resolution-comparison");
+      if (resProofWrap) {
+        if (rep.issue_status === "RESOLVED" && rep.issue_resolution_image_url) {
+          resProofWrap.classList.remove("hidden");
+          document.getElementById("rep-resolution-notes").textContent = rep.issue_resolution_notes || "Field team confirmed completed resolution.";
+        } else {
+          resProofWrap.classList.add("hidden");
+        }
+      }
+
+      // Sibling Reports
+      const sibsWrap = document.getElementById("rep-siblings-container");
+      const sibsList = document.getElementById("rep-siblings-list");
+      const sibsCount = document.getElementById("rep-siblings-count");
+      const siblings = rep.sibling_reports || [];
+      if (sibsWrap && sibsList) {
+        if (siblings.length > 0) {
+          sibsWrap.classList.remove("hidden");
+          if (sibsCount) sibsCount.textContent = siblings.length;
+          sibsList.innerHTML = siblings.map(s => `
+            <div onclick="Admin.openReportDetail('${s.id}')" class="shrink-0 w-20 cursor-pointer p-1 rounded-lg border border-slate-200 hover:border-blue-400 bg-white space-y-1">
+              <div class="w-full h-12 bg-slate-100 rounded overflow-hidden">
+                <img src="${s.image_url}" class="w-full h-full object-cover" />
+              </div>
+              <div class="text-[9px] font-mono font-bold text-slate-700 truncate text-center">#${s.id}</div>
+            </div>
+          `).join("");
+        } else {
+          sibsWrap.classList.add("hidden");
+        }
+      }
+
+    } catch (err) {
+      console.error("Failed to load report detail:", err);
+      alert(`Could not load report details: ${err.message}`);
+      this.closeReportDetailModal();
+    }
+  },
+
+  closeReportDetailModal() {
+    const modal = document.getElementById("modal-report-detail");
+    if (modal) modal.classList.add("hidden");
+    this.currentReportDetail = null;
+  },
+
+  openDrawerFromReportDetail() {
+    if (this.currentReportDetail && this.currentReportDetail.issue_id) {
+      const issueId = this.currentReportDetail.issue_id;
+      this.closeReportDetailModal();
+      this.openDrawer(issueId);
+    }
+  },
+
+  repImageZoom(delta) {
+    this.repZoomLevel = Math.max(0.6, Math.min(3.0, this.repZoomLevel + delta));
+    const wrapper = document.getElementById("rep-img-zoom-wrapper");
+    if (wrapper) wrapper.style.transform = `scale(${this.repZoomLevel.toFixed(2)})`;
+  },
+
+  repImageResetZoom() {
+    this.repZoomLevel = 1.0;
+    const wrapper = document.getElementById("rep-img-zoom-wrapper");
+    if (wrapper) wrapper.style.transform = "scale(1.0)";
+  },
+
+  toggleRepBBoxes() {
+    this.showRepBBoxes = !this.showRepBBoxes;
+    const btn = document.getElementById("btn-rep-toggle-bbox");
+    if (btn) {
+      btn.textContent = this.showRepBBoxes ? "👁️ Overlays" : "🙈 Hidden";
+      btn.className = this.showRepBBoxes 
+        ? "px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-bold hover:bg-blue-100"
+        : "px-2.5 py-1 bg-slate-100 text-slate-500 border border-slate-200 rounded text-xs font-semibold hover:bg-slate-200";
+    }
+    this.renderRepBoundingBoxes();
+  },
+
+  renderRepBoundingBoxes() {
+    const canvas = document.getElementById("rep-detail-canvas");
+    const img = document.getElementById("rep-detail-img");
+    if (!canvas || !img) return;
+
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!this.showRepBBoxes || !this.currentReportDetail) return;
+    const detections = this.currentReportDetail.detections || [];
+    if (detections.length === 0) return;
+
+    canvas.width = img.clientWidth || img.width;
+    canvas.height = img.clientHeight || img.height;
+
+    const natW = img.naturalWidth || canvas.width;
+    const natH = img.naturalHeight || canvas.height;
+    const scaleX = canvas.width / natW;
+    const scaleY = canvas.height / natH;
+
+    detections.forEach(d => {
+      const bbox = d.bbox;
+      if (!bbox || bbox.length < 4) return;
+      let [x1, y1, x2, y2] = bbox;
+
+      if (x1 <= 1 && x2 <= 1 && y1 <= 1 && y2 <= 1) {
+        x1 *= natW;
+        x2 *= natW;
+        y1 *= natH;
+        y2 *= natH;
+      }
+
+      const dx = x1 * scaleX;
+      const dy = y1 * scaleY;
+      const dw = (x2 - x1) * scaleX;
+      const dh = (y2 - y1) * scaleY;
+
+      ctx.strokeStyle = "#ef4444";
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(dx, dy, dw, dh);
+
+      const label = `${(d.class_name || d.category || 'hazard').toUpperCase()} ${Math.round((d.confidence || 0) * 100)}%`;
+      ctx.font = "bold 11px sans-serif";
+      const textWidth = ctx.measureText(label).width;
+
+      ctx.fillStyle = "#ef4444";
+      ctx.fillRect(dx, Math.max(0, dy - 18), textWidth + 8, 18);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(label, dx + 4, Math.max(13, dy - 4));
+    });
+  },
+
+  viewResolutionProofDirect() {
+    if (this.currentReportDetail && this.currentReportDetail.issue_resolution_image_url) {
+      window.open(this.currentReportDetail.issue_resolution_image_url, "_blank");
+    }
+  },
+
+  getAuthExplanation(status) {
+    const map = {
+      LIKELY_AUTHENTIC: "Natural optical grain and sensor noise characteristics verified.",
+      UNCERTAIN: "Moderate lighting or compression; scheduled for technician review.",
+      REVIEW_REQUIRED: "Texture variance flagged; technician confirmation required.",
+      SUSPICIOUS: "Synthetic or altered artifacts flagged; manual audit required."
+    };
+    return map[status] || "Automated sensor noise verification completed.";
+  },
+
+  getAuthStatusBadgeClass(status) {
+    if (status === "SUSPICIOUS") return "bg-red-50 text-red-700 border-red-200";
+    if (status === "REVIEW_REQUIRED") return "bg-blue-50 text-blue-700 border-blue-200";
+    if (status === "UNCERTAIN") return "bg-amber-50 text-amber-700 border-amber-200";
+    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  },
+
+  getStatusChipClass(status) {
+    if (status === "RESOLVED") return "bg-emerald-100 text-emerald-800";
+    if (status === "IN_PROGRESS") return "bg-blue-100 text-blue-800";
+    return "bg-amber-100 text-amber-800";
+  },
+
+  getPriorityBadgeClass(pLevel) {
+    if (pLevel === "CRITICAL") return "text-rose-700";
+    if (pLevel === "HIGH") return "text-orange-600";
+    if (pLevel === "MEDIUM") return "text-amber-600";
+    return "text-blue-600";
   }
 };

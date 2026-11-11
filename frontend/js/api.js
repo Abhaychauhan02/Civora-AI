@@ -227,6 +227,10 @@ const Api = {
     return this.request(`/api/reports${query ? '?' + query : ''}`);
   },
 
+  async getReportDetails(reportId) {
+    return this.request(`/api/reports/${reportId}`);
+  },
+
   // Issues & Admin Triage Endpoints
   async getIssues(params = {}) {
     const query = new URLSearchParams(params).toString();
