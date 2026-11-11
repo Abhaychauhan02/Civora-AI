@@ -11,12 +11,12 @@ from typing import Tuple
 
 
 CATEGORY_RISK_WEIGHTS = {
-    "pothole": 35,              # High road hazard for two-wheelers & vehicular traffic
-    "damaged_streetlight": 25,  # Night visibility & pedestrian safety
-    "streetlight": 25,
-    "garbage": 20,              # Sanitation & public hygiene
-    "waterlogging": 30,         # Road submergence, pedestrian hazard & drain overflow
-    "other": 15
+    "pothole": 50,              # High road hazard for two-wheelers & vehicular traffic
+    "waterlogging": 45,         # Road submergence, pedestrian hazard & drain overflow
+    "damaged_streetlight": 40,  # Night visibility & pedestrian safety
+    "streetlight": 40,
+    "garbage": 35,              # Sanitation & public hygiene
+    "other": 25
 }
 
 
@@ -28,7 +28,7 @@ def calculate_dynamic_priority(
 ) -> Tuple[int, str]:
     """
     Computes priority score (0-100) and corresponding priority tier:
-    Score = (0.5 * base_severity) + (report_count_bump) + (category_risk_weight * 0.3) + (aging_bump)
+    Score = (0.55 * base_severity) + (category_risk_weight * 0.35) + (report_count_bump) + (aging_bump)
     """
     cat_key = category.lower() if category.lower() in CATEGORY_RISK_WEIGHTS else "other"
     category_factor = CATEGORY_RISK_WEIGHTS[cat_key]
@@ -47,8 +47,8 @@ def calculate_dynamic_priority(
             aging_bump = 0
 
     # Composite formula
-    raw_score = (base_severity * 0.5) + (category_factor * 0.3) + report_bump + aging_bump
-    score = max(5, min(100, round(raw_score)))
+    raw_score = (base_severity * 0.55) + (category_factor * 0.35) + report_bump + aging_bump
+    score = max(15, min(100, round(raw_score)))
 
     # Priority tier classification
     if score >= 75:

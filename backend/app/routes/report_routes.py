@@ -25,6 +25,7 @@ async def submit_report(
     category: Optional[str] = Form(None),
     address: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
+    location_source: Optional[str] = Form("MANUAL_PIN"),
     current_user: Optional[dict] = Depends(get_current_user)
 ):
     """
@@ -151,11 +152,11 @@ async def submit_report(
             cursor.execute("""
                 INSERT INTO issues (
                     id, title, category, description, latitude, longitude, address,
-                    status, priority_score, priority_level, report_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'REPORTED', ?, ?, 1)
+                    status, priority_score, priority_level, report_count, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'REPORTED', ?, ?, 1, CURRENT_TIMESTAMP)
             """, (
-                issue_id, issue_title, primary_category, description,
-                latitude, longitude, address, initial_score, initial_tier
+                issue_id, issue_title, primary_category, description or "Citizen reported civic issue.",
+                latitude, longitude, address or f"Lat {latitude:.4f}, Lon {longitude:.4f}", initial_score, initial_tier
             ))
 
             conf_str = f"{int(primary_confidence * 100)}% conf" if primary_confidence is not None else "manual triage"
@@ -174,13 +175,14 @@ async def submit_report(
         cursor.execute("""
             INSERT INTO reports (
                 id, issue_id, user_id, image_url, latitude, longitude, address,
-                description, ai_category, ai_confidence, ai_detections_json,
-                authenticity_status, severity_score
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                description, citizen_category, ai_category, ai_confidence, ai_detections_json,
+                authenticity_status, severity_score, location_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            report_id, issue_id, user_id, image_web_url, latitude, longitude, address,
-            description, ai_detected_category or primary_category, primary_confidence,
-            json.dumps(detections), auth_status, severity_score
+            report_id, issue_id, user_id, image_web_url, latitude, longitude,
+            address or f"Lat {latitude:.4f}, Lon {longitude:.4f}",
+            description, category, ai_detected_category, primary_confidence,
+            json.dumps(detections), auth_status, severity_score, location_source or "MANUAL_PIN"
         ))
 
     effective_tier = new_tier if is_duplicate else initial_tier

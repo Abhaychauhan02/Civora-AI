@@ -54,7 +54,7 @@ def list_issues(
             term = f"%{search.strip()}%"
             params.extend([term, term, term])
 
-        query += " ORDER BY priority_score DESC, updated_at DESC LIMIT ? OFFSET ?"
+        query += " ORDER BY COALESCE(updated_at, created_at) DESC, priority_score DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         cursor.execute(query, tuple(params))

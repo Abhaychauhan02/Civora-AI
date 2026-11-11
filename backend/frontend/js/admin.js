@@ -335,6 +335,7 @@ const Admin = {
     }
 
     tbody.innerHTML = pageItems.map(iss => {
+      const displayId = iss.id ? (iss.id.startsWith("iss_") ? iss.id.replace("iss_", "") : iss.id) : "00";
       const pCls = iss.priority_level === "CRITICAL" ? "badge-priority-critical" : (iss.priority_level === "HIGH" ? "badge-priority-high" : (iss.priority_level === "MEDIUM" ? "badge-priority-medium" : "badge-priority-low"));
       const sCls = iss.status === "RESOLVED" ? "chip-status-resolved" : (iss.status === "IN_PROGRESS" ? "chip-status-in-progress" : (iss.status === "ASSIGNED" ? "chip-status-assigned" : "chip-status-pending"));
 
@@ -342,10 +343,10 @@ const Admin = {
 
       return `
         <tr class="hover:bg-slate-50/70 transition">
-          <td class="px-6 py-3 font-mono font-bold text-slate-900">#ISS-${iss.id}</td>
-          <td class="px-4 py-3 capitalize font-semibold text-slate-800">${(iss.category || "").replace("_", " ")}</td>
-          <td class="px-4 py-3 text-slate-500 max-w-xs truncate" title="${iss.address || ''}">
-            ${iss.address || `${iss.latitude.toFixed(4)}, ${iss.longitude.toFixed(4)}`}
+          <td class="px-6 py-3 font-mono font-bold text-slate-900">#ISS-${displayId}</td>
+          <td class="px-4 py-3 capitalize font-semibold text-slate-800">${(iss.category || "General Hazard").replace("_", " ")}</td>
+          <td class="px-4 py-3 text-slate-600 max-w-xs truncate" title="${iss.address || ''}">
+            ${iss.address || `GPS: ${iss.latitude.toFixed(4)}, ${iss.longitude.toFixed(4)}`}
           </td>
           <td class="px-4 py-3">
             <span class="badge-priority ${pCls}">${iss.priority_level}</span>
@@ -354,7 +355,7 @@ const Admin = {
             <span class="chip-status ${sCls}">${iss.status}</span>
           </td>
           <td class="px-4 py-3 font-mono text-slate-600">${iss.report_count || 1}</td>
-          <td class="px-4 py-3 text-slate-400">${timeAgo}</td>
+          <td class="px-4 py-3 text-slate-400 font-mono">${timeAgo}</td>
           <td class="px-6 py-3 text-right">
             <button onclick="Admin.openDrawer('${iss.id}')" class="px-2.5 py-1 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition shadow-2xs">
               Inspect
@@ -558,8 +559,9 @@ const Admin = {
       const res = await Api.getIssueDetails(issueId);
       const iss = res.issue || {};
       const reports = res.reports || [];
+      const displayId = iss.id ? (iss.id.startsWith("iss_") ? iss.id.replace("iss_", "") : iss.id) : "00";
 
-      document.getElementById("drawer-issue-id").textContent = `#ISS-${iss.id}`;
+      document.getElementById("drawer-issue-id").textContent = `#ISS-${displayId}`;
       document.getElementById("drawer-title").textContent = iss.title || iss.category;
       document.getElementById("drawer-address").textContent = iss.address || `GPS: ${iss.latitude.toFixed(5)}, ${iss.longitude.toFixed(5)}`;
       document.getElementById("drawer-status-chip").textContent = iss.status;

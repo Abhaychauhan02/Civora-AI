@@ -116,6 +116,19 @@ def init_db():
         );
         """)
 
+        # Backward-compatible migrations for existing SQLite instances
+        cursor.execute("PRAGMA table_info(reports)")
+        report_cols = [c["name"] for c in cursor.fetchall()]
+        if "citizen_category" not in report_cols:
+            cursor.execute("ALTER TABLE reports ADD COLUMN citizen_category TEXT")
+        if "location_source" not in report_cols:
+            cursor.execute("ALTER TABLE reports ADD COLUMN location_source TEXT")
+
+        cursor.execute("PRAGMA table_info(issues)")
+        issue_cols = [c["name"] for c in cursor.fetchall()]
+        if "updated_at" not in issue_cols:
+            cursor.execute("ALTER TABLE issues ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+
         conn.commit()
 
 
