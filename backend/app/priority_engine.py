@@ -11,9 +11,11 @@ from typing import Tuple
 
 
 CATEGORY_RISK_WEIGHTS = {
-    "pothole": 35,             # High road hazard for two-wheelers & cars
-    "damaged_streetlight": 25, # Night visibility & public safety
-    "garbage": 20,             # Sanitation & hygiene
+    "pothole": 35,              # High road hazard for two-wheelers & vehicular traffic
+    "damaged_streetlight": 25,  # Night visibility & pedestrian safety
+    "streetlight": 25,
+    "garbage": 20,              # Sanitation & public hygiene
+    "waterlogging": 30,         # Road submergence, pedestrian hazard & drain overflow
     "other": 15
 }
 

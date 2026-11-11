@@ -227,7 +227,7 @@ const Admin = {
             </div>
             <p class="text-[11px] text-slate-500">${iss.category} • Status: <span class="font-bold">${iss.status}</span></p>
             <p class="text-[10px] text-slate-400">Reports: ${iss.report_count || 1}</p>
-            <button onclick="Admin.openDrawer(${iss.id})" class="w-full mt-2 py-1 px-2 bg-slate-900 text-white rounded text-xs font-bold hover:bg-slate-800 transition">
+            <button onclick="Admin.openDrawer('${iss.id}')" class="w-full mt-2 py-1 px-2 bg-slate-900 text-white rounded text-xs font-bold hover:bg-slate-800 transition">
               Inspect in Drawer
             </button>
           </div>
@@ -286,7 +286,7 @@ const Admin = {
       const sCls = iss.status === "RESOLVED" ? "chip-status-resolved" : (iss.status === "IN_PROGRESS" ? "chip-status-in-progress" : "chip-status-pending");
 
       return `
-        <div class="p-3 rounded-lg hover:bg-slate-50 transition border border-transparent hover:border-slate-200 cursor-pointer flex items-center justify-between gap-3" onclick="Admin.openDrawer(${iss.id})">
+        <div class="p-3 rounded-lg hover:bg-slate-50 transition border border-transparent hover:border-slate-200 cursor-pointer flex items-center justify-between gap-3" onclick="Admin.openDrawer('${iss.id}')">
           <div class="min-w-0 flex-1 space-y-0.5">
             <div class="flex items-center gap-2">
               <span class="badge-priority ${pCls}">${iss.priority_level}</span>
@@ -350,7 +350,7 @@ const Admin = {
           <td class="px-4 py-3 font-mono text-slate-600">${iss.report_count || 1}</td>
           <td class="px-4 py-3 text-slate-400">${timeAgo}</td>
           <td class="px-6 py-3 text-right">
-            <button onclick="Admin.openDrawer(${iss.id})" class="px-2.5 py-1 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition shadow-2xs">
+            <button onclick="Admin.openDrawer('${iss.id}')" class="px-2.5 py-1 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition shadow-2xs">
               Inspect
             </button>
           </td>
@@ -359,20 +359,52 @@ const Admin = {
     }).join("");
   },
 
-  renderSubViewsData() {
-    // 1. Citizen reports list
+  async renderSubViewsData() {
+    // 1. Citizen reports list - Fetch real raw citizen reports
     const repEl = document.getElementById("all-reports-container");
     if (repEl) {
-      repEl.innerHTML = this.currentIssues.map(iss => `
-        <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs">
-          <div>
-            <span class="font-bold text-slate-900">${iss.title || iss.category}</span>
-            <span class="text-slate-400 ml-2 font-mono">#ISS-${iss.id}</span>
-            <p class="text-[11px] text-slate-500">${iss.address || "Location logged"}</p>
-          </div>
-          <button onclick="Admin.openDrawer(${iss.id})" class="px-2.5 py-1 bg-white border border-slate-300 rounded font-bold hover:bg-slate-100 transition">Inspect</button>
-        </div>
-      `).join("");
+      repEl.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Loading citizen submission feed...</div>`;
+      try {
+        const res = await Api.getAdminReports({ limit: 100 });
+        const reports = res.reports || [];
+        if (reports.length === 0) {
+          repEl.innerHTML = `<div class="p-8 text-center text-xs text-slate-400">No citizen submissions recorded yet.</div>`;
+        } else {
+          repEl.innerHTML = reports.map(r => {
+            const timeAgo = this.formatTimeAgo(r.created_at);
+            const confText = r.ai_confidence !== null && r.ai_confidence !== undefined
+              ? `${Math.round(r.ai_confidence * 100)}% conf`
+              : "Manual Triage";
+            const authClass = r.authenticity_status === "SUSPICIOUS" ? "bg-red-100 text-red-800 border-red-200" : (r.authenticity_status === "REVIEW_REQUIRED" ? "bg-blue-100 text-blue-800 border-blue-200" : "bg-emerald-100 text-emerald-800 border-emerald-200");
+
+            return `
+              <div class="p-4 bg-white border border-slate-200/90 rounded-xl shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs hover:border-slate-300 transition">
+                <div class="flex items-center gap-3.5 min-w-0">
+                  <div class="w-14 h-14 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">
+                    <img src="${r.image_url}" alt="Report" class="w-full h-full object-cover" />
+                  </div>
+                  <div class="space-y-0.5 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="font-mono font-bold text-slate-400 text-[11px]">#REP-${r.id}</span>
+                      <span class="font-extrabold text-slate-900 capitalize">${(r.ai_category || "Civic Defect").replace(/_/g, " ")}</span>
+                      <span class="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded border border-blue-100">${confText}</span>
+                      <span class="text-[9px] font-bold px-1.5 py-0.2 rounded-full border ${authClass}">${r.authenticity_status || "LIKELY_AUTHENTIC"}</span>
+                    </div>
+                    <p class="text-slate-600 text-[11px] truncate">${r.address || `GPS: ${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}</p>
+                    <p class="text-slate-400 text-[10px] font-mono">${timeAgo} • Parent: #${r.issue_id}</p>
+                  </div>
+                </div>
+                <button onclick="Admin.openDrawer('${r.issue_id}')" class="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition text-xs shrink-0 shadow-2xs">
+                  Inspect Incident
+                </button>
+              </div>
+            `;
+          }).join("");
+        }
+      } catch (err) {
+        console.error("Failed to load admin reports:", err);
+        repEl.innerHTML = `<div class="p-4 text-center text-xs text-rose-600">Failed to load reports feed.</div>`;
+      }
     }
 
     // 2. Active Deduplicated Issues
@@ -388,7 +420,7 @@ const Admin = {
             </div>
             <p class="text-slate-500 mt-1">${iss.address || `GPS: ${iss.latitude}, ${iss.longitude}`}</p>
           </div>
-          <button onclick="Admin.openDrawer(${iss.id})" class="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition">Manage Incident</button>
+          <button onclick="Admin.openDrawer('${iss.id}')" class="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition">Manage Incident</button>
         </div>
       `).join("");
     }
@@ -407,7 +439,7 @@ const Admin = {
           <p class="text-slate-500 text-[11px]">${iss.address || "On-site"}</p>
           <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
             <span class="text-slate-400">Assigned: <strong class="text-slate-700">${iss.assigned_to || "Public Works"}</strong></span>
-            <button onclick="Admin.openDrawer(${iss.id})" class="text-blue-600 font-bold hover:underline">Update</button>
+            <button onclick="Admin.openDrawer('${iss.id}')" class="text-blue-600 font-bold hover:underline">Update</button>
           </div>
         </div>
       `).join("") : `<div class="col-span-3 text-center py-8 text-slate-400">No active dispatched work orders.</div>`;
@@ -426,7 +458,7 @@ const Admin = {
               <p class="text-rose-700 text-[11px]">${iss.address || "High-risk location"} • Score: ${iss.priority_score}</p>
             </div>
           </div>
-          <button onclick="Admin.openDrawer(${iss.id})" class="px-3 py-1.5 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-700 transition">Immediate Action</button>
+          <button onclick="Admin.openDrawer('${iss.id}')" class="px-3 py-1.5 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-700 transition">Immediate Action</button>
         </div>
       `).join("") : `<div class="text-center py-8 text-slate-400">No active critical hazard alerts. All clear.</div>`;
     }
@@ -516,35 +548,46 @@ const Admin = {
       document.getElementById("drawer-status-chip").textContent = iss.status;
       document.getElementById("drawer-priority-badge").textContent = iss.priority_level;
       document.getElementById("drawer-select-status").value = iss.status || "PENDING";
+      const deptSelect = document.getElementById("drawer-select-dept");
+      if (deptSelect && iss.assigned_department) {
+        deptSelect.value = iss.assigned_department;
+      }
       document.getElementById("drawer-child-count").textContent = `${reports.length} reports`;
 
       // Render Child Citizen Reports
       const childContainer = document.getElementById("drawer-child-reports");
       if (childContainer) {
-        childContainer.innerHTML = reports.map(r => `
-          <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-            <div class="flex items-start justify-between">
-              <div>
-                <span class="font-mono text-[10px] font-bold text-slate-400">#REP-${r.id}</span>
-                <div class="font-bold text-slate-800 text-xs">${r.ai_category ? r.ai_category.toUpperCase() : "DEFECT"} (${Math.round((r.ai_confidence||0)*100)}% conf)</div>
-              </div>
-              <span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${r.authenticity_status === 'SUSPICIOUS' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}">
-                ${r.authenticity_status || 'LIKELY_AUTHENTIC'}
-              </span>
-            </div>
+        childContainer.innerHTML = reports.map(r => {
+          const confLabel = r.ai_confidence !== null && r.ai_confidence !== undefined
+            ? `${Math.round(r.ai_confidence * 100)}% conf`
+            : "Manual Triage";
+          const authClass = r.authenticity_status === "SUSPICIOUS" ? "bg-red-100 text-red-800" : (r.authenticity_status === "REVIEW_REQUIRED" ? "bg-blue-100 text-blue-800" : "bg-emerald-100 text-emerald-800");
 
-            <div class="flex gap-3">
-              <div class="w-20 h-20 bg-slate-200 rounded-lg overflow-hidden shrink-0 border border-slate-300">
-                <img src="${r.image_url}" alt="Report Photo" class="w-full h-full object-cover" />
+          return `
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+              <div class="flex items-start justify-between">
+                <div>
+                  <span class="font-mono text-[10px] font-bold text-slate-400">#REP-${r.id}</span>
+                  <div class="font-bold text-slate-800 text-xs">${r.ai_category ? r.ai_category.toUpperCase() : "CIVIC DEFECT"} (${confLabel})</div>
+                </div>
+                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${authClass}">
+                  ${r.authenticity_status || 'LIKELY_AUTHENTIC'}
+                </span>
               </div>
-              <div class="flex-1 space-y-1 text-[11px] text-slate-500">
-                <p>${r.address || "GPS geotagged"}</p>
-                ${r.description ? `<p class="italic text-slate-600">"${r.description}"</p>` : ""}
-                <p class="text-[10px] text-slate-400">${new Date(r.created_at).toLocaleString()}</p>
+
+              <div class="flex gap-3">
+                <a href="${r.image_url}" target="_blank" title="Click to open original high-res photograph" class="w-20 h-20 bg-slate-200 rounded-lg overflow-hidden shrink-0 border border-slate-300 block hover:opacity-90 transition">
+                  <img src="${r.image_url}" alt="Report Photo" class="w-full h-full object-cover" />
+                </a>
+                <div class="flex-1 space-y-1 text-[11px] text-slate-500">
+                  <p class="font-medium text-slate-700">${r.address || "GPS geotagged"}</p>
+                  ${r.description ? `<p class="italic text-slate-600 bg-white p-1.5 rounded border border-slate-200">"${r.description}"</p>` : ""}
+                  <p class="text-[10px] text-slate-400 font-mono">${new Date(r.created_at).toLocaleString()}</p>
+                </div>
               </div>
             </div>
-          </div>
-        `).join("");
+          `;
+        }).join("");
       }
 
     } catch (err) {

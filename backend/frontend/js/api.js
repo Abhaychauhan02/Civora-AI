@@ -222,6 +222,11 @@ const Api = {
     return this.request("/api/reports/my");
   },
 
+  async getAdminReports(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/api/reports${query ? '?' + query : ''}`);
+  },
+
   // Issues & Admin Triage Endpoints
   async getIssues(params = {}) {
     const query = new URLSearchParams(params).toString();

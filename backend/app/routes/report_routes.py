@@ -7,7 +7,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, R
 
 from backend.app.config import UPLOAD_DIR
 from backend.app.database import get_db
-from backend.app.auth import get_current_user, require_auth
+from backend.app.auth import get_current_user, require_auth, require_admin
 from backend.app.ai_client import analyze_civic_image
 from backend.app.duplicate_engine import find_existing_issue_for_report
 from backend.app.priority_engine import calculate_dynamic_priority
@@ -77,14 +77,16 @@ async def submit_report(
     # Determine primary category and confidence from real AI detection
     if detections:
         top_det = max(detections, key=lambda d: d.get("confidence", 0.0))
-        primary_category = top_det.get("class_name") or top_det.get("issue")
+        ai_detected_category = top_det.get("class_name") or top_det.get("issue")
         primary_confidence = float(top_det.get("confidence", 0.0))
         detection_status = "DETECTION_FOUND"
+        primary_category = ai_detected_category
     else:
         # Real triage: no fabricated boxes, citizen category is accepted for routing
-        primary_category = (category or "general_infrastructure").strip().lower().replace(" ", "_")
+        ai_detected_category = None
         primary_confidence = None
-        detection_status = "NO_DETECTIONS_FOUND"
+        detection_status = "NO_CONFIDENT_DETECTION"
+        primary_category = (category or "general_infrastructure").strip().lower().replace(" ", "_")
 
     user_id = current_user["id"] if current_user else None
     user_name = current_user["full_name"] if current_user else "Anonymous Citizen"
@@ -177,7 +179,7 @@ async def submit_report(
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             report_id, issue_id, user_id, image_web_url, latitude, longitude, address,
-            description, primary_category, primary_confidence,
+            description, ai_detected_category or primary_category, primary_confidence,
             json.dumps(detections), auth_status, severity_score
         ))
 
@@ -199,8 +201,10 @@ async def submit_report(
         "issue_id": issue_id,
         "is_linked_to_existing_issue": is_duplicate,
         "status": detection_status,
-        "ai_category": primary_category,
+        "ai_category": ai_detected_category,
         "ai_confidence": primary_confidence,
+        "citizen_category": category,
+        "routing_category": primary_category,
         "ai_detections": detections,
         "authenticity_result": authenticity,
         "severity_score": severity_score,
@@ -209,7 +213,7 @@ async def submit_report(
         "assigned_department": dept_assigned,
         "ai_analysis": {
             "status": detection_status,
-            "category": primary_category,
+            "category": ai_detected_category or primary_category,
             "confidence": primary_confidence,
             "severity_score": severity_score,
             "priority_level": effective_tier,
@@ -219,6 +223,59 @@ async def submit_report(
             "assigned_department": dept_assigned
         }
     }
+
+
+@router.get("")
+def list_reports(
+    limit: int = 50,
+    offset: int = 0,
+    category: Optional[str] = None,
+    authenticity_status: Optional[str] = None,
+    admin_user: dict = Depends(require_admin)
+):
+    """
+    Admin-only endpoint to retrieve all citizen incident reports with pagination,
+    filtering, and linked parent issue metadata.
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT 
+                r.id, r.issue_id, r.image_url, r.latitude, r.longitude, r.address,
+                r.description, r.ai_category, r.ai_confidence, r.ai_detections_json,
+                r.authenticity_status, r.severity_score, r.created_at,
+                i.title as issue_title, i.status as issue_status,
+                i.priority_level as issue_priority, i.assigned_department
+            FROM reports r
+            LEFT JOIN issues i ON r.issue_id = i.id
+            WHERE 1=1
+        """
+        params = []
+        if category:
+            query += " AND (r.ai_category = ? OR i.category = ?)"
+            params.extend([category.lower(), category.lower()])
+        if authenticity_status:
+            query += " AND r.authenticity_status = ?"
+            params.append(authenticity_status.upper())
+        query += " ORDER BY r.created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+
+        reports = []
+        for r in rows:
+            rd = dict(r)
+            if rd.get("ai_detections_json"):
+                try:
+                    rd["detections"] = json.loads(rd["ai_detections_json"])
+                except Exception:
+                    rd["detections"] = []
+            else:
+                rd["detections"] = []
+            reports.append(rd)
+
+        return {"reports": reports, "total": len(reports), "limit": limit, "offset": offset}
 
 
 @router.get("/my")

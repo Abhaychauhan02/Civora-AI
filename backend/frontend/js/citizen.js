@@ -460,7 +460,7 @@ const Citizen = {
     const c = config[status] || config.LIKELY_AUTHENTIC;
     authBadge.className = `font-extrabold text-xs px-2 py-0.5 rounded-full border ${c.cls}`;
     authBadge.textContent = c.text;
-    if (authExpl) authExpl.textContent = c.expl;
+    if (authExpl) authExpl.textContent = authData.explanation || c.expl;
   },
 
   async submitReport(event) {
@@ -509,26 +509,38 @@ const Citizen = {
 
       // Extract unified AI values (handles flat & nested structures)
       const isDetected = (result.status || result.ai_analysis?.status) === "DETECTION_FOUND";
-      const primaryCat = (result.ai_category || result.ai_analysis?.category || this.selectedCategory || "Pothole").replace(/_/g, " ");
+      const detections = result.ai_detections || result.ai_analysis?.detections || [];
       const rawConf = typeof result.ai_confidence === "number" ? result.ai_confidence : (typeof result.ai_analysis?.confidence === "number" ? result.ai_analysis.confidence : null);
       const confPct = rawConf !== null ? Math.round(rawConf * 100) : null;
+      
+      const primaryCat = isDetected
+        ? (result.ai_category || result.ai_analysis?.category || "Defect").replace(/_/g, " ")
+        : (result.citizen_category || this.selectedCategory || "General Infrastructure").replace(/_/g, " ");
+
       const auth = result.authenticity_result || result.ai_analysis?.authenticity || { status: "LIKELY_AUTHENTIC", real_probability: 0.94 };
-      const detections = result.ai_detections || result.ai_analysis?.detections || [];
       const dept = result.assigned_department || result.ai_analysis?.assigned_department || "Public Works Dept (PWD)";
       const priority = result.priority_level || result.ai_analysis?.priority_level || "HIGH";
       const priorityScore = result.priority_score || result.ai_analysis?.priority_score || 82;
 
       // Update In-Form AI Diagnostics Card
       const categoryEl = document.getElementById("diag-category");
+      const categoryDescEl = document.getElementById("diag-category-desc");
       const confEl = document.getElementById("diag-confidence");
       const deptEl = document.getElementById("diag-department");
       const priorityEl = document.getElementById("diag-priority-tag");
       const diagCard = document.getElementById("ai-diagnostic-card");
 
       if (diagCard) diagCard.classList.remove("hidden");
-      if (categoryEl) categoryEl.textContent = primaryCat.toUpperCase();
+      if (categoryEl) {
+        categoryEl.textContent = isDetected ? primaryCat.toUpperCase() : `${primaryCat.toUpperCase()} (MANUAL ROUTING)`;
+      }
+      if (categoryDescEl) {
+        categoryDescEl.textContent = isDetected
+          ? "YOLOv8 detected civic hazard"
+          : "No defect detected with high confidence. Routed via citizen triage.";
+      }
       if (confEl) {
-        if (confPct !== null) {
+        if (isDetected && confPct !== null) {
           confEl.textContent = `${confPct}% conf`;
           confEl.className = "text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded";
         } else {
@@ -550,8 +562,8 @@ const Citizen = {
       // Open Success Receipt Modal
       this.openSuccessModal({
         reportId: result.report_id || "REP-" + Math.floor(10000 + Math.random() * 90000),
-        category: primaryCat,
-        confidenceText: confPct !== null ? `${confPct}% AI Vision Confidence` : "Visual Staff Verification Required",
+        category: isDetected ? primaryCat : `${primaryCat} (Manual Triage)`,
+        confidenceText: (isDetected && confPct !== null) ? `${confPct}% AI Vision Confidence` : "Visual Staff Verification Queued",
         dept: dept,
         authStatus: `${auth.status || 'LIKELY_AUTHENTIC'} (${(auth.real_probability || 0.94).toFixed(2)})`,
         priority: `${priority} • Score ${priorityScore}/100`,
