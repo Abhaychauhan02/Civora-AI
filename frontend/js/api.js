@@ -231,6 +231,29 @@ const Api = {
     return this.request(`/api/reports/${reportId}`);
   },
 
+  async prescanImage(formData) {
+    return this.request("/api/reports/pre-scan", {
+      method: "POST",
+      body: formData
+    });
+  },
+
+  async reverseGeocode(lat, lon) {
+    return this.request(`/api/geo/reverse?lat=${lat}&lon=${lon}`);
+  },
+
+  async searchPlaces(query) {
+    return this.request(`/api/geo/search?q=${encodeURIComponent(query)}`);
+  },
+
+  async adminOverrideCategory(reportId, category, reason) {
+    return this.request(`/api/reports/${reportId}/admin-override`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category, reason })
+    });
+  },
+
   // Issues & Admin Triage Endpoints
   async getIssues(params = {}) {
     const query = new URLSearchParams(params).toString();

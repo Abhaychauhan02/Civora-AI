@@ -2,7 +2,7 @@
 Civora Unified AI Pipeline: Authenticity Screening + YOLO Object Detection + Severity Scoring.
 """
 from typing import Dict, Any
-from src.inference.detect import detect_civic_issue
+from src.inference.detect import detect_civic_issue_detailed
 from src.authenticity.screen import screen_authenticity
 from src.severity.scoring import calculate_severity
 
@@ -11,11 +11,14 @@ def predict(image_path: str) -> Dict[str, Any]:
     """
     Full Civora AI pipeline:
     1. Authenticity screening on raw image file (preserves camera EXIF & sensor noise).
-    2. Civic hazard detection via fine-tuned YOLOv8.
+    2. Civic hazard detection via fine-tuned YOLOv8 with instance-level localization.
     3. Rule-based severity scoring and priority mapping.
     """
     authenticity = screen_authenticity(image_path)
-    detections = detect_civic_issue(image_path)
+    detailed = detect_civic_issue_detailed(image_path)
+    detections = detailed.get("detections", [])
+    img_w = detailed.get("image_width", 640)
+    img_h = detailed.get("image_height", 640)
     severity = calculate_severity(detections)
 
     if detections:
@@ -30,7 +33,9 @@ def predict(image_path: str) -> Dict[str, Any]:
 
     return {
         "status": status,
-        "model_version": "civora-yolo-v1-improved",
+        "model_version": detailed.get("model_version", "civora-yolo-v1-improved"),
+        "image_width": img_w,
+        "image_height": img_h,
         "primary_category": primary_category,
         "primary_confidence": primary_confidence,
         "detections": detections,

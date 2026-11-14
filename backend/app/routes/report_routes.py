@@ -13,7 +13,81 @@ from backend.app.duplicate_engine import find_existing_issue_for_report
 from backend.app.priority_engine import calculate_dynamic_priority
 from backend.app.security_utils import validate_image_upload, enforce_rate_limit
 
+from pydantic import BaseModel
+
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
+
+
+class CategoryOverrideRequest(BaseModel):
+    category: str
+    reason: str
+
+
+@router.post("/pre-scan")
+async def prescan_report_image(
+    request: Request,
+    image: UploadFile = File(...)
+):
+    """
+    Instant AI visual defect localization and pre-submission screening:
+    Accepts raw citizen photo, runs instance-level YOLO detection and authenticity screening,
+    and returns exact bounding boxes, confidence, defect sizes, and suggested category.
+    Does NOT persist to the database.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    enforce_rate_limit(f"prescan:{client_ip}", max_requests=40, window_seconds=60, action_name="image pre-scan")
+
+    try:
+        file_bytes = await image.read()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to read image: {str(exc)}")
+
+    is_valid, err_msg, canonical_ext = validate_image_upload(file_bytes, image.filename or "scan.jpg")
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Image validation failed: {err_msg}")
+
+    # Stage temporary image in staging directory
+    staging_filename = f"scan_{uuid.uuid4().hex[:12]}{canonical_ext}"
+    staging_rel_path = os.path.join("staging", staging_filename)
+    staging_abs_path = os.path.join(UPLOAD_DIR, staging_rel_path)
+
+    os.makedirs(os.path.dirname(staging_abs_path), exist_ok=True)
+    with open(staging_abs_path, "wb") as buffer:
+        buffer.write(file_bytes)
+
+    try:
+        ai_result = await analyze_civic_image(staging_abs_path)
+    finally:
+        # Cleanup temporary staging file
+        try:
+            if os.path.exists(staging_abs_path):
+                os.remove(staging_abs_path)
+        except Exception:
+            pass
+
+    detections = ai_result.get("detections", [])
+    authenticity = ai_result.get("authenticity", {})
+    severity_score = int(ai_result.get("severity_score", 40))
+
+    if detections:
+        top_det = max(detections, key=lambda d: d.get("confidence", 0.0))
+        suggested_category = top_det.get("class_name") or top_det.get("issue")
+        detection_status = "DETECTION_FOUND"
+    else:
+        suggested_category = "unclassified"
+        detection_status = "NO_CONFIDENT_DETECTION"
+
+    return {
+        "status": detection_status,
+        "model_version": ai_result.get("model_version", "civora-yolo-v1-improved"),
+        "image_width": ai_result.get("image_width", 640),
+        "image_height": ai_result.get("image_height", 640),
+        "detections": detections,
+        "authenticity": authenticity,
+        "suggested_category": suggested_category,
+        "severity_score": severity_score,
+        "hazard_count": len(detections)
+    }
 
 
 @router.post("/submit")
@@ -26,6 +100,7 @@ async def submit_report(
     address: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     location_source: Optional[str] = Form("MANUAL_PIN"),
+    location_accuracy: Optional[float] = Form(None),
     current_user: Optional[dict] = Depends(get_current_user)
 ):
     """
@@ -176,13 +251,14 @@ async def submit_report(
             INSERT INTO reports (
                 id, issue_id, user_id, image_url, latitude, longitude, address,
                 description, citizen_category, ai_category, ai_confidence, ai_detections_json,
-                authenticity_status, severity_score, location_source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                authenticity_status, severity_score, location_source, location_accuracy
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             report_id, issue_id, user_id, image_web_url, latitude, longitude,
             address or f"Lat {latitude:.4f}, Lon {longitude:.4f}",
             description, category, ai_detected_category, primary_confidence,
-            json.dumps(detections), auth_status, severity_score, location_source or "MANUAL_PIN"
+            json.dumps(detections), auth_status, severity_score, location_source or "MANUAL_PIN",
+            location_accuracy
         ))
 
     effective_tier = new_tier if is_duplicate else initial_tier
@@ -385,3 +461,91 @@ def get_report_details(report_id: str, current_user: Optional[dict] = Depends(ge
         data["timeline"] = timeline
 
         return {"report": data}
+
+
+@router.patch("/{report_id}/admin-override")
+def admin_override_category(
+    report_id: str,
+    payload: CategoryOverrideRequest,
+    admin_user: dict = Depends(require_admin)
+):
+    """
+    Administrative category correction:
+    Permits authorized administrators to correct an AI misclassification or specify ground truth.
+    Preserves:
+    - Original AI prediction (untouched)
+    - Original Citizen category (untouched)
+    - Admin verified category, reason, admin identity, and timestamp.
+    - Appends audit log to issue_timeline.
+    """
+    valid_categories = {"pothole", "garbage", "damaged_streetlight", "streetlight", "waterlogging", "other"}
+    clean_cat = payload.category.strip().lower().replace(" ", "_")
+    if clean_cat not in valid_categories:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid category '{payload.category}'. Must be one of: {sorted(list(valid_categories))}"
+        )
+
+    if not payload.reason or not payload.reason.strip():
+        raise HTTPException(status_code=400, detail="Correction reason is required for administrative audit.")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, issue_id, ai_category, citizen_category FROM reports WHERE id = ?", (report_id,))
+        rep = cursor.fetchone()
+        if not rep:
+            raise HTTPException(status_code=404, detail="Report not found")
+
+        # Update report record with verified category metadata
+        cursor.execute("""
+            UPDATE reports
+            SET admin_verified_category = ?,
+                admin_correction_reason = ?,
+                admin_verified_by = ?,
+                admin_verified_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (clean_cat, payload.reason.strip(), admin_user["full_name"], report_id))
+
+        # Also update parent issue category and recalculate department if parent exists
+        issue_id = rep["issue_id"]
+        if issue_id:
+            dept_map = {
+                "pothole": "Public Works Dept (Road Maintenance Wing)",
+                "garbage": "Municipal Sanitation & Waste Bureau",
+                "damaged_streetlight": "City Electrical Utility Board",
+                "streetlight": "City Electrical Utility Board",
+                "waterlogging": "Drainage & Flood Management Wing"
+            }
+            new_dept = dept_map.get(clean_cat, "Municipal Infrastructure Services")
+
+            cursor.execute("""
+                UPDATE issues
+                SET category = ?,
+                    assigned_department = ?,
+                    admin_verified_category = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (clean_cat, new_dept, clean_cat, issue_id))
+
+            cursor.execute("""
+                INSERT INTO issue_timeline (id, issue_id, from_status, to_status, action_notes, actor_name)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                str(uuid.uuid4()),
+                issue_id,
+                None,
+                "CATEGORY_OVERRIDE",
+                f"Admin {admin_user['full_name']} verified category as '{clean_cat}'. Reason: {payload.reason.strip()}",
+                admin_user["full_name"]
+            ))
+
+        conn.commit()
+
+        return {
+            "success": True,
+            "message": f"Category verified as '{clean_cat}' successfully.",
+            "report_id": report_id,
+            "admin_verified_category": clean_cat,
+            "admin_correction_reason": payload.reason.strip(),
+            "admin_verified_by": admin_user["full_name"]
+        }

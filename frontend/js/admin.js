@@ -695,6 +695,24 @@ const Admin = {
   currentReportDetail: null,
   repZoomLevel: 1.0,
   showRepBBoxes: true,
+  activeDetectionId: null,
+
+  getCategoryColor(cat) {
+    const c = (cat || "").toLowerCase();
+    if (c.includes("pothole") || c.includes("road")) {
+      return { stroke: "#ef4444", fill: "rgba(239, 68, 68, 0.22)", highlightFill: "rgba(239, 68, 68, 0.45)", labelBg: "#ef4444", text: "#ffffff" };
+    }
+    if (c.includes("garbage") || c.includes("waste")) {
+      return { stroke: "#10b981", fill: "rgba(16, 185, 129, 0.22)", highlightFill: "rgba(16, 185, 129, 0.45)", labelBg: "#10b981", text: "#ffffff" };
+    }
+    if (c.includes("streetlight") || c.includes("light")) {
+      return { stroke: "#06b6d4", fill: "rgba(6, 182, 212, 0.22)", highlightFill: "rgba(6, 182, 212, 0.45)", labelBg: "#06b6d4", text: "#ffffff" };
+    }
+    if (c.includes("water") || c.includes("drain")) {
+      return { stroke: "#3b82f6", fill: "rgba(59, 130, 246, 0.22)", highlightFill: "rgba(59, 130, 246, 0.45)", labelBg: "#3b82f6", text: "#ffffff" };
+    }
+    return { stroke: "#8b5cf6", fill: "rgba(139, 92, 246, 0.22)", highlightFill: "rgba(139, 92, 246, 0.45)", labelBg: "#8b5cf6", text: "#ffffff" };
+  },
 
   async openReportDetail(reportId) {
     const modal = document.getElementById("modal-report-detail");
@@ -703,6 +721,7 @@ const Admin = {
 
     this.repZoomLevel = 1.0;
     this.showRepBBoxes = true;
+    this.activeDetectionId = null;
     const zoomWrapper = document.getElementById("rep-img-zoom-wrapper");
     if (zoomWrapper) zoomWrapper.style.transform = "scale(1.0)";
 
@@ -729,7 +748,8 @@ const Admin = {
       }
       const parentLink = document.getElementById("rep-detail-parent-link");
       if (parentLink) {
-        parentLink.textContent = rep.issue_id ? `#${rep.issue_id}` : "Unlinked";
+        const displayIssueId = rep.issue_id ? rep.issue_id.replace(/^iss_/, "") : "Unlinked";
+        parentLink.textContent = `#ISS-${displayIssueId}`;
         parentLink.onclick = () => {
           this.closeReportDetailModal();
           if (rep.issue_id) this.openDrawer(rep.issue_id);
@@ -764,6 +784,18 @@ const Admin = {
       document.getElementById("rep-gps").textContent = (rep.latitude && rep.longitude)
         ? `${rep.latitude.toFixed(5)}, ${rep.longitude.toFixed(5)}`
         : "GPS Not Available";
+      
+      const accBadge = document.getElementById("rep-accuracy-badge");
+      if (accBadge) {
+        if (rep.location_accuracy) {
+          accBadge.textContent = `±${Math.round(rep.location_accuracy)}m`;
+          accBadge.className = "font-mono text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 font-bold";
+        } else {
+          accBadge.textContent = "Manual Pin";
+          accBadge.className = "font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded";
+        }
+      }
+      
       document.getElementById("rep-description").textContent = rep.description || "No citizen remarks provided.";
 
       // Populate AI Diagnostics
@@ -787,20 +819,7 @@ const Admin = {
       // Bounding box list
       const detections = rep.detections || [];
       document.getElementById("rep-bbox-count").textContent = detections.length;
-      const bboxesList = document.getElementById("rep-detections-list");
-      if (bboxesList) {
-        if (detections.length === 0) {
-          bboxesList.innerHTML = `<div class="text-slate-400 italic">No AI bounding boxes detected for this submission.</div>`;
-        } else {
-          bboxesList.innerHTML = detections.map((d, i) => `
-            <div class="p-1 bg-white rounded border border-slate-200 flex items-center justify-between">
-              <span class="font-bold text-slate-800">#${i+1} ${(d.class_name || d.category || 'hazard').replace(/_/g, ' ')}</span>
-              <span class="text-blue-600 font-bold">${Math.round((d.confidence || 0) * 100)}%</span>
-              <span class="text-slate-400 text-[9px]">[${(d.bbox || []).map(n => Math.round(n)).join(', ')}]</span>
-            </div>
-          `).join("");
-        }
-      }
+      this.renderRepDetectionChips(detections);
 
       // Operations & Lifecycle
       const opStatus = document.getElementById("rep-op-status");
@@ -818,6 +837,24 @@ const Admin = {
       }
       document.getElementById("rep-op-dept").textContent = rep.issue_assigned_department || "Municipal Infrastructure Services";
       document.getElementById("rep-op-staff").textContent = rep.issue_assigned_to || "Unassigned (Pending Dispatch)";
+
+      // Card 4: Administrative Ground Truth Override
+      const overrideBanner = document.getElementById("rep-override-existing");
+      const overrideVal = document.getElementById("rep-override-val");
+      const overrideBy = document.getElementById("rep-override-by");
+      const overrideReason = document.getElementById("rep-override-reason");
+      const overrideSelect = document.getElementById("rep-override-select");
+
+      if (rep.admin_verified_category) {
+        if (overrideBanner) overrideBanner.classList.remove("hidden");
+        if (overrideVal) overrideVal.textContent = rep.admin_verified_category.replace(/_/g, " ");
+        if (overrideBy) overrideBy.textContent = rep.admin_verified_by || "Admin";
+        if (overrideReason) overrideReason.textContent = rep.admin_correction_reason || "Verified";
+        if (overrideSelect) overrideSelect.value = rep.admin_verified_category;
+      } else {
+        if (overrideBanner) overrideBanner.classList.add("hidden");
+        if (overrideSelect) overrideSelect.value = rep.ai_category || rep.citizen_category || "pothole";
+      }
 
       // Resolution proof comparison
       const resProofWrap = document.getElementById("rep-resolution-comparison");
@@ -852,6 +889,13 @@ const Admin = {
         }
       }
 
+      // Attach Canvas Click Handler for Hit-Testing
+      const canvas = document.getElementById("rep-detail-canvas");
+      if (canvas && !canvas._hasHitTestListener) {
+        canvas._hasHitTestListener = true;
+        canvas.addEventListener("click", (e) => this.handleRepCanvasClick(e));
+      }
+
     } catch (err) {
       console.error("Failed to load report detail:", err);
       alert(`Could not load report details: ${err.message}`);
@@ -859,10 +903,113 @@ const Admin = {
     }
   },
 
+  renderRepDetectionChips(detections) {
+    const bboxesList = document.getElementById("rep-detections-list");
+    if (!bboxesList) return;
+
+    if (!detections || detections.length === 0) {
+      bboxesList.innerHTML = `<div class="text-slate-400 italic">No AI bounding boxes detected for this submission.</div>`;
+      return;
+    }
+
+    bboxesList.innerHTML = detections.map((d, i) => {
+      const id = d.detection_id || (i + 1);
+      const cat = (d.class_name || d.category || "hazard").replace(/_/g, " ");
+      const conf = Math.round((d.confidence || 0) * 100);
+      const sizeTag = d.relative_size ? ` • ${d.relative_size}` : "";
+      const isSelected = this.activeDetectionId === id;
+      const activeCls = isSelected ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500" : "bg-white border-slate-200 hover:border-slate-300";
+
+      return `
+        <div onclick="Admin.highlightRepDetection(${id})" class="p-1.5 rounded border ${activeCls} cursor-pointer flex items-center justify-between text-[11px] transition">
+          <div class="flex items-center gap-1.5">
+            <span class="font-mono font-bold text-slate-400 text-[10px]">#${id}</span>
+            <span class="font-bold text-slate-800 capitalize">${cat}</span>
+            <span class="text-[10px] text-slate-400 font-mono">${sizeTag}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-blue-700 font-bold font-mono">${conf}%</span>
+            <span class="text-slate-400 text-[9px] font-mono">[${(d.bbox || []).map(n => Math.round(n)).join(', ')}]</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+  },
+
+  highlightRepDetection(id) {
+    this.activeDetectionId = (this.activeDetectionId === id) ? null : id;
+    if (this.currentReportDetail) {
+      this.renderRepDetectionChips(this.currentReportDetail.detections);
+      this.renderRepBoundingBoxes();
+    }
+  },
+
+  handleRepCanvasClick(e) {
+    const canvas = document.getElementById("rep-detail-canvas");
+    const img = document.getElementById("rep-detail-img");
+    if (!canvas || !img || !this.currentReportDetail || !this.currentReportDetail.detections) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const natW = img.naturalWidth || canvas.width;
+    const natH = img.naturalHeight || canvas.height;
+    const scaleX = canvas.width / natW;
+    const scaleY = canvas.height / natH;
+
+    const dets = this.currentReportDetail.detections;
+    let clickedId = null;
+    for (let i = dets.length - 1; i >= 0; i--) {
+      const d = dets[i];
+      const bbox = d.bbox || [];
+      if (bbox.length < 4) continue;
+      const x1 = bbox[0] * scaleX;
+      const y1 = bbox[1] * scaleY;
+      const x2 = bbox[2] * scaleX;
+      const y2 = bbox[3] * scaleY;
+
+      if (clickX >= x1 && clickX <= x2 && clickY >= y1 && clickY <= y2) {
+        clickedId = d.detection_id || (i + 1);
+        break;
+      }
+    }
+
+    if (clickedId !== null) {
+      this.highlightRepDetection(clickedId);
+    }
+  },
+
+  async submitCategoryOverride() {
+    if (!this.currentReportDetail) return;
+    const select = document.getElementById("rep-override-select");
+    const reasonInput = document.getElementById("rep-override-reason-input");
+    const category = select ? select.value : "pothole";
+    const reason = reasonInput ? reasonInput.value.trim() : "";
+
+    if (!reason) {
+      alert("Please provide an audit reason or field observation for the category verification.");
+      if (reasonInput) reasonInput.focus();
+      return;
+    }
+
+    try {
+      await Api.adminOverrideCategory(this.currentReportDetail.id, category, reason);
+      alert(`Category verified as ${category.toUpperCase()} successfully.`);
+      if (reasonInput) reasonInput.value = "";
+      await this.openReportDetail(this.currentReportDetail.id);
+      this.loadIssues();
+      this.loadAnalytics();
+    } catch (err) {
+      alert(err.message || "Failed to override category.");
+    }
+  },
+
   closeReportDetailModal() {
     const modal = document.getElementById("modal-report-detail");
     if (modal) modal.classList.add("hidden");
     this.currentReportDetail = null;
+    this.activeDetectionId = null;
   },
 
   openDrawerFromReportDetail() {
@@ -909,15 +1056,21 @@ const Admin = {
     const detections = this.currentReportDetail.detections || [];
     if (detections.length === 0) return;
 
-    canvas.width = img.clientWidth || img.width;
-    canvas.height = img.clientHeight || img.height;
+    const dispW = img.clientWidth || img.width;
+    const dispH = img.clientHeight || img.height;
+    canvas.width = dispW;
+    canvas.height = dispH;
+    canvas.style.top = img.offsetTop + "px";
+    canvas.style.left = img.offsetLeft + "px";
+    canvas.style.width = dispW + "px";
+    canvas.style.height = dispH + "px";
 
     const natW = img.naturalWidth || canvas.width;
     const natH = img.naturalHeight || canvas.height;
     const scaleX = canvas.width / natW;
     const scaleY = canvas.height / natH;
 
-    detections.forEach(d => {
+    detections.forEach((d, i) => {
       const bbox = d.bbox;
       if (!bbox || bbox.length < 4) return;
       let [x1, y1, x2, y2] = bbox;
@@ -934,19 +1087,38 @@ const Admin = {
       const dw = (x2 - x1) * scaleX;
       const dh = (y2 - y1) * scaleY;
 
-      ctx.strokeStyle = "#ef4444";
-      ctx.lineWidth = 2.5;
+      const id = d.detection_id || (i + 1);
+      const isHighlighted = this.activeDetectionId === id;
+      const cat = d.class_name || d.category || "hazard";
+      const col = this.getCategoryColor(cat);
+
+      // Translucent box fill
+      ctx.fillStyle = isHighlighted ? col.highlightFill : col.fill;
+      ctx.fillRect(dx, dy, dw, dh);
+
+      // Border outline
+      ctx.strokeStyle = isHighlighted ? "#ffffff" : col.stroke;
+      ctx.lineWidth = isHighlighted ? 3.5 : 2.0;
       ctx.strokeRect(dx, dy, dw, dh);
 
-      const label = `${(d.class_name || d.category || 'hazard').toUpperCase()} ${Math.round((d.confidence || 0) * 100)}%`;
+      if (isHighlighted) {
+        ctx.strokeStyle = col.stroke;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(dx - 2, dy - 2, dw + 4, dh + 4);
+      }
+
+      const confPct = Math.round((d.confidence || 0) * 100);
+      const label = `#${id} ${cat.toUpperCase()} ${confPct}%`;
       ctx.font = "bold 11px sans-serif";
       const textWidth = ctx.measureText(label).width;
+      const labelH = 18;
+      const labelY = Math.max(0, dy - labelH);
 
-      ctx.fillStyle = "#ef4444";
-      ctx.fillRect(dx, Math.max(0, dy - 18), textWidth + 8, 18);
+      ctx.fillStyle = col.labelBg;
+      ctx.fillRect(dx, labelY, textWidth + 8, labelH);
 
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(label, dx + 4, Math.max(13, dy - 4));
+      ctx.fillStyle = col.text;
+      ctx.fillText(label, dx + 4, labelY + 13);
     });
   },
 

@@ -123,11 +123,23 @@ def init_db():
             cursor.execute("ALTER TABLE reports ADD COLUMN citizen_category TEXT")
         if "location_source" not in report_cols:
             cursor.execute("ALTER TABLE reports ADD COLUMN location_source TEXT")
+        if "location_accuracy" not in report_cols:
+            cursor.execute("ALTER TABLE reports ADD COLUMN location_accuracy REAL")
+        if "admin_verified_category" not in report_cols:
+            cursor.execute("ALTER TABLE reports ADD COLUMN admin_verified_category TEXT")
+        if "admin_correction_reason" not in report_cols:
+            cursor.execute("ALTER TABLE reports ADD COLUMN admin_correction_reason TEXT")
+        if "admin_verified_by" not in report_cols:
+            cursor.execute("ALTER TABLE reports ADD COLUMN admin_verified_by TEXT")
+        if "admin_verified_at" not in report_cols:
+            cursor.execute("ALTER TABLE reports ADD COLUMN admin_verified_at TIMESTAMP")
 
         cursor.execute("PRAGMA table_info(issues)")
         issue_cols = [c["name"] for c in cursor.fetchall()]
         if "updated_at" not in issue_cols:
             cursor.execute("ALTER TABLE issues ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        if "admin_verified_category" not in issue_cols:
+            cursor.execute("ALTER TABLE issues ADD COLUMN admin_verified_category TEXT")
 
         conn.commit()
 

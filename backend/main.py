@@ -23,6 +23,7 @@ from backend.app.routes.auth_routes import router as auth_router
 from backend.app.routes.report_routes import router as report_router
 from backend.app.routes.issue_routes import router as issue_router
 from backend.app.routes.analytics_routes import router as analytics_router
+from backend.app.routes.geo_routes import router as geo_router
 
 
 def seed_initial_accounts():
@@ -109,6 +110,7 @@ app.include_router(auth_router)
 app.include_router(report_router)
 app.include_router(issue_router)
 app.include_router(analytics_router)
+app.include_router(geo_router)
 
 
 @app.get("/api/health")
