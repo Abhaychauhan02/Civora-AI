@@ -390,19 +390,24 @@
               </div>
             </div>
 
-            <!-- Quick Landmark Jump Chips -->
-            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
-              <span class="text-slate-400 font-semibold shrink-0">Quick jump:</span>
-              <button type="button" onclick="Citizen.jumpToLocation(28.6315, 77.2167, 'Connaught Place, New Delhi')" class="shrink-0 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition font-medium">📍 Connaught Place</button>
-              <button type="button" onclick="Citizen.jumpToLocation(28.5494, 77.2536, 'Nehru Place Hub, Delhi')" class="shrink-0 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition font-medium">📍 Nehru Place</button>
-              <button type="button" onclick="Citizen.jumpToLocation(28.6276, 77.3725, 'Sector 62, Noida')" class="shrink-0 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition font-medium">📍 Noida Sec 62</button>
-              <button type="button" onclick="Citizen.jumpToLocation(28.4908, 77.0878, 'DLF CyberCity, Gurugram')" class="shrink-0 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition font-medium">📍 Cyber City</button>
-              <button type="button" onclick="Citizen.jumpToLocation(28.5245, 77.2066, 'Saket City Centre, Delhi')" class="shrink-0 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition font-medium">📍 Saket</button>
+            <!-- Locality & Landmark Search Bar with Live Autocomplete -->
+            <div class="relative">
+              <div class="relative flex items-center">
+                <div class="absolute left-3 text-slate-400 pointer-events-none">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
+                <input type="text" id="locality-search-input" placeholder="Search locality, street, or landmark across India..." class="w-full pl-9 pr-24 py-2 text-xs border border-slate-300 rounded-xl bg-white shadow-2xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" oninput="Citizen.handleSearchInput(event)" onkeydown="if(event.key==='Enter'){event.preventDefault();Citizen.executeSearch();}" />
+                <button type="button" onclick="Citizen.executeSearch()" class="absolute right-1 px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs">
+                  Search
+                </button>
+              </div>
+              <!-- Dynamic Search Suggestions Dropdown -->
+              <div id="locality-search-suggestions" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-[500] max-h-56 overflow-y-auto divide-y divide-slate-100 text-xs"></div>
             </div>
 
             <!-- Leaflet Map Container -->
             <div class="relative rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-              <div id="report-map" style="height: 300px;"></div>
+              <div id="report-map" style="height: 320px;"></div>
               
               <!-- Floating Map Controls & Overlays -->
               <div class="absolute top-2 right-2 z-[400] flex flex-col gap-1.5">
@@ -412,29 +417,37 @@
                 <button type="button" onclick="Citizen.recenterOnUser()" id="btn-recenter-user" class="hidden px-2.5 py-1 bg-white/95 backdrop-blur-xs text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-lg shadow-xs text-[11px] font-bold flex items-center gap-1 transition" title="Center on My Device Location">
                   🎯 My Location
                 </button>
+                <button type="button" onclick="Citizen.pinToUserLocation()" id="btn-snap-user" class="hidden px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs text-[11px] font-bold flex items-center gap-1 transition" title="Pin Incident to My GPS">
+                  📌 Pin to My GPS
+                </button>
               </div>
 
-              <!-- Bottom Coordinate Readout -->
-              <div class="absolute bottom-2 left-2 z-[400] bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-lg border border-slate-200 shadow-xs text-[11px] text-slate-600 font-mono flex items-center gap-3">
-                <div class="flex items-center gap-1.5">
-                  <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
-                  Incident: <span id="selected-coords" class="font-bold text-slate-900">28.61390, 77.20900</span>
+              <!-- Bottom Coordinate Readout & Verification Status -->
+              <div class="absolute bottom-2 left-2 right-2 z-[400] bg-white/95 backdrop-blur-xs px-3 py-1.5 rounded-lg border border-slate-200 shadow-xs text-[11px] text-slate-600 font-mono flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                    <span class="font-bold text-slate-900">Incident:</span>
+                    <span id="selected-coords" class="font-bold text-slate-900">28.61390, 77.20900</span>
+                  </div>
+                  <span id="loc-verification-pill" class="text-[9px] font-bold font-sans px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    MANUALLY_SELECTED
+                  </span>
                 </div>
-                <div id="user-gps-readout" class="hidden pl-2 border-l border-slate-200 text-blue-700 flex items-center gap-1">
+                <div id="user-gps-readout" class="hidden text-blue-700 flex items-center gap-1.5 text-[10px]">
                   <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-                  <span>Device GPS: <span id="user-gps-coords" class="font-bold">--</span></span>
+                  <span>My Device GPS: <strong id="user-gps-coords">--</strong> (<span id="user-gps-acc">±0m</span>)</span>
                 </div>
               </div>
             </div>
 
-            <!-- Address Input with Lookup -->
+            <!-- Address Input with Auto-Reverse Geocoding -->
             <div>
-              <label for="address-input" class="block text-xs font-medium text-slate-600 mb-1">Street Address or Landmark (Auto-geocoded or type to search)</label>
-              <div class="relative">
-                <input type="text" id="address-input" placeholder="e.g. Near Connaught Place, Block B, New Delhi" class="w-full pl-3.5 pr-16 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" oninput="Citizen.handleAddressInput(event)" />
-                <button type="button" onclick="Citizen.searchAddress()" class="absolute right-1 top-1 bottom-1 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-md transition">Find</button>
+              <div class="flex items-center justify-between mb-1">
+                <label for="address-input" class="block text-xs font-medium text-slate-600">Incident Street Address or Landmark</label>
+                <span class="text-[10px] text-slate-400">Auto-updates as you drag the pin</span>
               </div>
-              <div id="address-suggestions" class="hidden mt-1 p-1 bg-white border border-slate-200 rounded-lg shadow-lg text-xs space-y-0.5"></div>
+              <input type="text" id="address-input" placeholder="e.g. Near Connaught Place, Block B, New Delhi" class="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" oninput="Citizen.handleManualAddressChange()" />
             </div>
           </div>
 
@@ -1321,6 +1334,17 @@
                   <span id="rep-loc-badge" class="font-bold text-emerald-600">Verified On-Site</span>
                   <span id="rep-accuracy-badge" class="font-mono text-[10px] text-slate-500">±0m</span>
                 </div>
+              </div>
+              <div class="col-span-2 flex items-center gap-2 pt-1">
+                <a id="rep-gmaps-link" href="#" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] inline-flex items-center gap-1 transition">
+                  🗺️ Google Maps
+                </a>
+                <a id="rep-osm-link" href="#" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] inline-flex items-center gap-1 transition">
+                  🌍 OpenStreetMap
+                </a>
+              </div>
+              <div class="col-span-2">
+                <div id="rep-detail-map" style="height: 160px;" class="w-full rounded-lg border border-slate-200 mt-1"></div>
               </div>
               <div class="col-span-2">
                 <span class="text-slate-400 block">Citizen Description:</span>

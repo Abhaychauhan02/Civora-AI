@@ -16,8 +16,11 @@ const Citizen = {
   userLng: null,         // Physical Citizen Device Longitude
   locationAccuracy: null,// GPS accuracy radius in meters
   
-  // 7 Explicit Geolocation States
+  // Explicit Geolocation States & Verifications
   gpsState: "LOCATION_PERMISSION_REQUIRED",
+  locationVerification: "LOCATION_UNVERIFIED",
+  hasUserMovedIncidentPin: false,
+  hasUserEditedAddress: false,
   
   selectedCategory: "pothole",
   selectedFile: null,
@@ -31,6 +34,7 @@ const Citizen = {
   currentFilter: "ALL",
   reverseGeocodeTimer: null,
   addressSearchTimer: null,
+  localitySearchTimer: null,
 
   init() {
     this.initMap();
@@ -261,18 +265,24 @@ const Citizen = {
       const pos = e.target.getLatLng();
       this.currentLat = pos.lat;
       this.currentLng = pos.lng;
+      this.hasUserMovedIncidentPin = true;
       this.locationSource = "MANUAL_PIN";
       this.setGpsState("LOCATION_MANUALLY_SELECTED");
-      this.debouncedReverseGeocode(this.currentLat, this.currentLng);
+      if (!this.hasUserEditedAddress) {
+        this.debouncedReverseGeocode(this.currentLat, this.currentLng);
+      }
     });
 
     this.map.on("click", (e) => {
       this.currentLat = e.latlng.lat;
       this.currentLng = e.latlng.lng;
+      this.hasUserMovedIncidentPin = true;
       this.locationSource = "MANUAL_PIN";
       this.marker.setLatLng([this.currentLat, this.currentLng]);
       this.setGpsState("LOCATION_MANUALLY_SELECTED");
-      this.debouncedReverseGeocode(this.currentLat, this.currentLng);
+      if (!this.hasUserEditedAddress) {
+        this.debouncedReverseGeocode(this.currentLat, this.currentLng);
+      }
     });
 
     this.updateCoordsDisplay();
@@ -314,23 +324,28 @@ const Citizen = {
         // Add or update blue User Location Marker and Accuracy Circle
         this.renderUserLocationMarker(lat, lng, accuracy);
 
-        // Snap incident pin to user position if this is initial detection or user clicked pin
-        const isDefaultLocation = Math.abs(this.currentLat - 28.6139) < 0.0001 && Math.abs(this.currentLng - 77.2090) < 0.0001;
-        if (isDefaultLocation || isRetry) {
+        const snapBtn = document.getElementById("btn-snap-user");
+        const recenterBtn = document.getElementById("btn-recenter-user");
+        if (snapBtn) snapBtn.classList.remove("hidden");
+        if (recenterBtn) recenterBtn.classList.remove("hidden");
+
+        // Snap incident pin to user position if user hasn't manually positioned the pin, or on explicit retry
+        if (!this.hasUserMovedIncidentPin || isRetry) {
           this.currentLat = lat;
           this.currentLng = lng;
           this.locationSource = "GPS_LOCKED";
           this.marker.setLatLng([lat, lng]);
           this.setGpsState("LOCATION_CONFIRMED", { accuracy });
+          if (!this.hasUserEditedAddress) {
+            this.debouncedReverseGeocode(this.currentLat, this.currentLng);
+          }
+          if (this.map) {
+            this.map.flyTo([lat, lng], 16, { animate: true, duration: 1.0 });
+          }
         } else {
           this.setGpsState("LOCATION_DETECTED", { accuracy });
         }
 
-        if (this.map) {
-          this.map.flyTo([lat, lng], 16, { animate: true, duration: 1.0 });
-        }
-
-        this.debouncedReverseGeocode(this.currentLat, this.currentLng);
         showToast(`GPS Locked! Accuracy: ±${Math.round(accuracy)}m`, "success");
       },
       (err) => {
@@ -392,11 +407,14 @@ const Citizen = {
     }
     this.currentLat = this.userLat;
     this.currentLng = this.userLng;
+    this.hasUserMovedIncidentPin = false;
     this.locationSource = "GPS_LOCKED";
     if (this.marker) this.marker.setLatLng([this.currentLat, this.currentLng]);
     if (this.map) this.map.flyTo([this.currentLat, this.currentLng], 17);
     this.setGpsState("LOCATION_CONFIRMED", { accuracy: this.locationAccuracy });
-    this.debouncedReverseGeocode(this.currentLat, this.currentLng);
+    if (!this.hasUserEditedAddress) {
+      this.debouncedReverseGeocode(this.currentLat, this.currentLng);
+    }
     showToast("Incident pin locked to your device GPS location!", "success");
   },
 
@@ -414,23 +432,89 @@ const Citizen = {
     }
   },
 
-  jumpToLocation(lat, lng, address) {
+  handleManualAddressChange() {
+    this.hasUserEditedAddress = true;
+  },
+
+  handleSearchInput(event) {
+    const query = event.target.value.trim();
+    const suggestionsEl = document.getElementById("locality-search-suggestions");
+    if (!suggestionsEl) return;
+
+    clearTimeout(this.localitySearchTimer);
+    if (query.length < 2) {
+      suggestionsEl.classList.add("hidden");
+      return;
+    }
+
+    this.localitySearchTimer = setTimeout(async () => {
+      try {
+        const res = await Api.searchPlaces(query);
+        const results = res.results || [];
+        if (results.length === 0) {
+          suggestionsEl.innerHTML = `<div class="p-2.5 text-xs text-slate-400 text-center">No locations found for "${query}"</div>`;
+          suggestionsEl.classList.remove("hidden");
+          return;
+        }
+
+        suggestionsEl.innerHTML = results.map(item => `
+          <div onclick="Citizen.selectLocalitySuggestion(${item.latitude}, ${item.longitude}, '${item.display_name.replace(/'/g, "\\'")}')" class="p-2.5 hover:bg-blue-50 cursor-pointer text-xs text-slate-800 flex items-center justify-between gap-2 transition">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-blue-500 shrink-0">📍</span>
+              <span class="font-medium truncate">${item.display_name}</span>
+            </div>
+            <span class="text-[10px] text-blue-600 font-mono font-bold shrink-0 bg-blue-50 px-1.5 py-0.5 rounded">Pin</span>
+          </div>
+        `).join("");
+        suggestionsEl.classList.remove("hidden");
+      } catch (_) {
+        suggestionsEl.classList.add("hidden");
+      }
+    }, 300);
+  },
+
+  selectLocalitySuggestion(lat, lng, address) {
+    const suggestionsEl = document.getElementById("locality-search-suggestions");
+    if (suggestionsEl) suggestionsEl.classList.add("hidden");
+    const searchInput = document.getElementById("locality-search-input");
+    if (searchInput) searchInput.value = address.split(',')[0];
+
+    this.hasUserMovedIncidentPin = true;
     this.currentLat = lat;
     this.currentLng = lng;
     this.locationSource = "LANDMARK_SEARCH";
-    if (this.map && this.marker) {
-      this.map.flyTo([lat, lng], 16, { animate: true, duration: 1.0 });
-      this.marker.setLatLng([lat, lng]);
-    }
+    if (this.marker) this.marker.setLatLng([lat, lng]);
+    if (this.map) this.map.flyTo([lat, lng], 16, { animate: true, duration: 0.8 });
     this.setGpsState("LOCATION_MANUALLY_SELECTED");
-    const addrInput = document.getElementById("address-input");
-    if (addrInput && address) {
-      addrInput.value = address;
+
+    if (!this.hasUserEditedAddress) {
+      const addrInput = document.getElementById("address-input");
+      if (addrInput) addrInput.value = address;
     }
-    showToast(`Map centered on ${address.split(',')[0]}`, "info");
+    showToast(`Pinned to ${address.split(',')[0]}`, "info");
+  },
+
+  async executeSearch() {
+    const input = document.getElementById("locality-search-input");
+    const query = input ? input.value.trim() : "";
+    if (!query) return;
+
+    try {
+      showToast("Searching locality...", "info");
+      const res = await Api.searchPlaces(query);
+      const list = res.results || [];
+      if (list.length > 0) {
+        this.selectLocalitySuggestion(list[0].latitude, list[0].longitude, list[0].display_name);
+      } else {
+        showToast("No locations found. Drag the pin on the map.", "warning");
+      }
+    } catch (e) {
+      showToast("Location search unavailable. Please position the pin manually.", "warning");
+    }
   },
 
   debouncedReverseGeocode(lat, lng) {
+    if (this.hasUserEditedAddress) return;
     clearTimeout(this.reverseGeocodeTimer);
     this.reverseGeocodeTimer = setTimeout(() => {
       this.reverseGeocode(lat, lng);
@@ -438,10 +522,11 @@ const Citizen = {
   },
 
   async reverseGeocode(lat, lng) {
+    if (this.hasUserEditedAddress) return;
     try {
       const data = await Api.reverseGeocode(lat, lng);
       const addrInput = document.getElementById("address-input");
-      if (addrInput && data && data.address) {
+      if (addrInput && data && data.address && !this.hasUserEditedAddress) {
         addrInput.value = data.address;
       }
     } catch (err) {
@@ -449,73 +534,42 @@ const Citizen = {
     }
   },
 
-  handleAddressInput(event) {
-    const query = event.target.value.trim();
-    const suggestionsEl = document.getElementById("address-suggestions");
-    if (!suggestionsEl) return;
-
-    clearTimeout(this.addressSearchTimer);
-    if (query.length < 3) {
-      suggestionsEl.classList.add("hidden");
-      return;
-    }
-
-    this.addressSearchTimer = setTimeout(async () => {
-      try {
-        const res = await Api.searchPlaces(query);
-        const results = res.results || [];
-        if (results.length === 0) {
-          suggestionsEl.classList.add("hidden");
-          return;
-        }
-
-        suggestionsEl.innerHTML = results.map(item => `
-          <div onclick="Citizen.selectAddressSuggestion(${item.latitude}, ${item.longitude}, '${item.display_name.replace(/'/g, "\\'")}')" class="p-2 hover:bg-slate-100 cursor-pointer rounded text-xs text-slate-800 flex items-center justify-between">
-            <span class="font-medium">${item.display_name}</span>
-            <span class="text-[10px] text-slate-400 font-mono">Select</span>
-          </div>
-        `).join("");
-        suggestionsEl.classList.remove("hidden");
-      } catch (_) {
-        suggestionsEl.classList.add("hidden");
-      }
-    }, 350);
-  },
-
-  selectAddressSuggestion(lat, lng, address) {
-    const suggestionsEl = document.getElementById("address-suggestions");
-    if (suggestionsEl) suggestionsEl.classList.add("hidden");
-    this.jumpToLocation(lat, lng, address);
-  },
-
-  async searchAddress() {
-    const input = document.getElementById("address-input");
-    const query = input ? input.value.trim() : "";
-    if (!query) return;
-
-    try {
-      showToast("Searching location...", "info");
-      const res = await Api.searchPlaces(query);
-      const list = res.results || [];
-      if (list.length > 0) {
-        this.jumpToLocation(list[0].latitude, list[0].longitude, list[0].display_name);
-        showToast("Location found & pinned!", "success");
-      } else {
-        showToast("No location matching that name found. You can tap on the map.", "warning");
-      }
-    } catch (e) {
-      showToast("Address lookup timed out. You can position the pin manually.", "warning");
-    }
-  },
-
   updateCoordsDisplay() {
     const coordEl = document.getElementById("selected-coords");
     const reviewCoords = document.getElementById("review-coords-val");
     const reviewSource = document.getElementById("review-source-val");
+    const verifPill = document.getElementById("loc-verification-pill");
+    const userAccEl = document.getElementById("user-gps-acc");
 
     const coordStr = `${this.currentLat.toFixed(5)}, ${this.currentLng.toFixed(5)}`;
     if (coordEl) coordEl.textContent = coordStr;
     if (reviewCoords) reviewCoords.textContent = coordStr;
+
+    // Determine location verification state
+    let verif = "LOCATION_UNVERIFIED";
+    if (this.locationSource === "GPS_LOCKED") {
+      verif = (this.locationAccuracy && this.locationAccuracy <= 30) ? "GPS_VERIFIED" : "GPS_APPROXIMATE";
+    } else if (this.locationSource === "MANUAL_PIN" || this.locationSource === "LANDMARK_SEARCH") {
+      verif = "MANUALLY_SELECTED";
+    }
+    this.locationVerification = verif;
+
+    if (verifPill) {
+      verifPill.textContent = verif;
+      if (verif === "GPS_VERIFIED") {
+        verifPill.className = "text-[9px] font-bold font-sans px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300";
+      } else if (verif === "GPS_APPROXIMATE") {
+        verifPill.className = "text-[9px] font-bold font-sans px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300";
+      } else if (verif === "MANUALLY_SELECTED") {
+        verifPill.className = "text-[9px] font-bold font-sans px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200";
+      } else {
+        verifPill.className = "text-[9px] font-bold font-sans px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300";
+      }
+    }
+
+    if (userAccEl && this.locationAccuracy) {
+      userAccEl.textContent = `±${Math.round(this.locationAccuracy)}m`;
+    }
 
     if (reviewSource) {
       if (this.locationSource === "GPS_LOCKED") {
@@ -957,6 +1011,7 @@ const Citizen = {
     if (this.locationAccuracy) {
       formData.append("location_accuracy", this.locationAccuracy.toString());
     }
+    formData.append("location_verification", this.locationVerification || "LOCATION_UNVERIFIED");
     formData.append("address", addressInput ? addressInput.value.trim() : "");
     formData.append("description", descInput ? descInput.value.trim() : "");
 

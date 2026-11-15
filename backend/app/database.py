@@ -128,6 +128,8 @@ def init_db():
             cursor.execute("ALTER TABLE reports ADD COLUMN location_source TEXT")
         if "location_accuracy" not in report_cols:
             cursor.execute("ALTER TABLE reports ADD COLUMN location_accuracy REAL")
+        if "location_verification" not in report_cols:
+            cursor.execute("ALTER TABLE reports ADD COLUMN location_verification TEXT DEFAULT 'LOCATION_UNVERIFIED'")
         if "admin_verified_category" not in report_cols:
             cursor.execute("ALTER TABLE reports ADD COLUMN admin_verified_category TEXT")
         if "admin_correction_reason" not in report_cols:

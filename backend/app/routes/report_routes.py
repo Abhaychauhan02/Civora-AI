@@ -103,6 +103,7 @@ async def submit_report(
     description: Optional[str] = Form(None),
     location_source: Optional[str] = Form("MANUAL_PIN"),
     location_accuracy: Optional[float] = Form(None),
+    location_verification: Optional[str] = Form("LOCATION_UNVERIFIED"),
     current_user: Optional[dict] = Depends(get_current_user)
 ):
     """
@@ -166,6 +167,11 @@ async def submit_report(
         primary_confidence = None
         detection_status = "NO_CONFIDENT_DETECTION"
         primary_category = (category or "general_infrastructure").strip().lower().replace(" ", "_")
+
+    valid_verifications = {"GPS_VERIFIED", "GPS_APPROXIMATE", "MANUALLY_SELECTED", "LOCATION_UNVERIFIED"}
+    clean_verification = (location_verification or "LOCATION_UNVERIFIED").strip().upper()
+    if clean_verification not in valid_verifications:
+        clean_verification = "LOCATION_UNVERIFIED"
 
     user_id = current_user["id"] if current_user else None
     user_name = current_user["full_name"] if current_user else "Anonymous Citizen"
@@ -254,14 +260,15 @@ async def submit_report(
             INSERT INTO reports (
                 id, issue_id, user_id, image_url, latitude, longitude, address,
                 description, citizen_category, ai_category, ai_confidence, ai_detections_json,
-                authenticity_status, authenticity_score, severity_score, location_source, location_accuracy
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                authenticity_status, authenticity_score, severity_score, location_source,
+                location_accuracy, location_verification
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             report_id, issue_id, user_id, image_web_url, latitude, longitude,
             address or f"Lat {latitude:.4f}, Lon {longitude:.4f}",
             description, category, ai_detected_category, primary_confidence,
             json.dumps(detections), auth_status, auth_score, severity_score, location_source or "MANUAL_PIN",
-            location_accuracy
+            location_accuracy, clean_verification
         ))
 
     effective_tier = new_tier if is_duplicate else initial_tier
@@ -286,6 +293,8 @@ async def submit_report(
         "ai_confidence": primary_confidence,
         "citizen_category": category,
         "routing_category": primary_category,
+        "location_verification": clean_verification,
+        "location_accuracy": location_accuracy,
         "ai_detections": detections,
         "authenticity_result": authenticity,
         "severity_score": severity_score,

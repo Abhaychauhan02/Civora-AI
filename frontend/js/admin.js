@@ -781,7 +781,8 @@ const Admin = {
           : "Not provided / Anonymous";
       }
       document.getElementById("rep-address").textContent = rep.address || "No address entered";
-      document.getElementById("rep-gps").textContent = (rep.latitude && rep.longitude)
+      const hasCoords = (typeof rep.latitude === "number" && typeof rep.longitude === "number");
+      document.getElementById("rep-gps").textContent = hasCoords
         ? `${rep.latitude.toFixed(5)}, ${rep.longitude.toFixed(5)}`
         : "GPS Not Available";
       
@@ -794,6 +795,78 @@ const Admin = {
           accBadge.textContent = "Manual Pin";
           accBadge.className = "font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded";
         }
+      }
+
+      // Verification Badge
+      const locBadge = document.getElementById("rep-loc-badge");
+      if (locBadge) {
+        const vState = rep.location_verification || (rep.location_accuracy ? (rep.location_accuracy <= 30 ? "GPS_VERIFIED" : "GPS_APPROXIMATE") : "MANUALLY_SELECTED");
+        if (vState === "GPS_VERIFIED") {
+          locBadge.textContent = "GPS VERIFIED (ON-SITE)";
+          locBadge.className = "font-bold text-emerald-700 text-xs px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200";
+        } else if (vState === "GPS_APPROXIMATE") {
+          locBadge.textContent = "GPS APPROXIMATE";
+          locBadge.className = "font-bold text-amber-700 text-xs px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200";
+        } else {
+          locBadge.textContent = "MANUALLY PINNED";
+          locBadge.className = "font-bold text-blue-700 text-xs px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200";
+        }
+      }
+
+      // External Map Links
+      const gmapsLink = document.getElementById("rep-gmaps-link");
+      const osmLink = document.getElementById("rep-osm-link");
+      if (gmapsLink) {
+        if (hasCoords) {
+          gmapsLink.href = `https://www.google.com/maps?q=${rep.latitude},${rep.longitude}`;
+          gmapsLink.classList.remove("pointer-events-none", "opacity-50");
+        } else {
+          gmapsLink.href = "#";
+          gmapsLink.classList.add("pointer-events-none", "opacity-50");
+        }
+      }
+      if (osmLink) {
+        if (hasCoords) {
+          osmLink.href = `https://www.openstreetmap.org/?mlat=${rep.latitude}&mlon=${rep.longitude}#map=17/${rep.latitude}/${rep.longitude}`;
+          osmLink.classList.remove("pointer-events-none", "opacity-50");
+        } else {
+          osmLink.href = "#";
+          osmLink.classList.add("pointer-events-none", "opacity-50");
+        }
+      }
+
+      // Mini Map Preview
+      if (this.repDetailMap) {
+        this.repDetailMap.remove();
+        this.repDetailMap = null;
+      }
+      const mapContainer = document.getElementById("rep-detail-map");
+      if (mapContainer && hasCoords && window.L) {
+        setTimeout(() => {
+          try {
+            if (this.repDetailMap) this.repDetailMap.remove();
+            this.repDetailMap = L.map("rep-detail-map", {
+              attributionControl: false,
+              zoomControl: false
+            }).setView([rep.latitude, rep.longitude], 16);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(this.repDetailMap);
+            L.control.zoom({ position: "topright" }).addTo(this.repDetailMap);
+            const m = L.marker([rep.latitude, rep.longitude]).addTo(this.repDetailMap);
+            m.bindTooltip(rep.address || "Report Incident Location").openTooltip();
+            if (rep.location_accuracy) {
+              L.circle([rep.latitude, rep.longitude], {
+                radius: rep.location_accuracy,
+                color: "#3b82f6",
+                fillColor: "#3b82f6",
+                fillOpacity: 0.15,
+                weight: 1
+              }).addTo(this.repDetailMap);
+            }
+            this.repDetailMap.invalidateSize();
+          } catch (e) {
+            console.warn("Failed to initialize detail map:", e);
+          }
+        }, 150);
       }
       
       document.getElementById("rep-description").textContent = rep.description || "No citizen remarks provided.";
@@ -1009,6 +1082,12 @@ const Admin = {
   },
 
   closeReportDetailModal() {
+    if (this.repDetailMap) {
+      try {
+        this.repDetailMap.remove();
+      } catch (_) {}
+      this.repDetailMap = null;
+    }
     const modal = document.getElementById("modal-report-detail");
     if (modal) modal.classList.add("hidden");
     this.currentReportDetail = null;
