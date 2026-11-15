@@ -100,26 +100,43 @@ else
 fi
 
 # 8. Attempt Let's Encrypt Certificate Generation via Certbot
-echo "🔒 Attempting to obtain official Let's Encrypt Certificate for ${DOMAIN}..."
+echo "🔒 Attempting to obtain official Let's Encrypt Certificate via sslip.io..."
 set +e
-sudo certbot certonly --webroot -w /var/www/certbot \
-  -d "${DOMAIN}" \
+
+# Try sslip.io with nginx plugin (sslip.io is on Mozilla Public Suffix List, avoiding rate limits)
+sudo certbot --nginx \
+  -d "13.211.32.245.sslip.io" \
   --non-interactive \
   --agree-tos \
   --register-unsafely-without-email \
-  --preferred-challenges http 2>&1 | tee /tmp/certbot.log
+  --redirect 2>&1 | tee /tmp/certbot_sslip.log
 
 CERT_RESULT=$?
-if [ ${CERT_RESULT} -eq 0 ] && [ -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
-  echo "🎉 Let's Encrypt certificate obtained successfully! Linking to Nginx..."
-  sudo ln -sf "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" /etc/ssl/civora/fullchain.pem
-  sudo ln -sf "/etc/letsencrypt/live/${DOMAIN}/privkey.pem" /etc/ssl/civora/privkey.pem
+if [ ${CERT_RESULT} -eq 0 ] && [ -d "/etc/letsencrypt/live/13.211.32.245.sslip.io" ]; then
+  echo "🎉 Let's Encrypt certificate obtained successfully for 13.211.32.245.sslip.io!"
+  sudo ln -sf "/etc/letsencrypt/live/13.211.32.245.sslip.io/fullchain.pem" /etc/ssl/civora/fullchain.pem
+  sudo ln -sf "/etc/letsencrypt/live/13.211.32.245.sslip.io/privkey.pem" /etc/ssl/civora/privkey.pem
   sudo systemctl reload nginx
-  echo "✅ HTTPS with Trusted CA Certificate is now ACTIVE!"
+  echo "✅ HTTPS with Trusted CA Certificate is now ACTIVE on https://13.211.32.245.sslip.io!"
 else
-  echo "ℹ️ Note: Let's Encrypt HTTP challenge requires AWS EC2 Security Group inbound Port 80 and Port 443 to be open to 0.0.0.0/0."
-  echo "ℹ️ The server is currently running with standard TLS certificates for ${DOMAIN}."
-  echo "ℹ️ Once inbound 80/443 are verified in AWS console, re-run 'sudo certbot --nginx -d ${DOMAIN}'."
+  # Secondary attempt for nip.io
+  sudo certbot --nginx \
+    -d "13.211.32.245.nip.io" \
+    --non-interactive \
+    --agree-tos \
+    --register-unsafely-without-email \
+    --redirect 2>&1 | tee /tmp/certbot_nip.log
+  
+  if [ $? -eq 0 ] && [ -d "/etc/letsencrypt/live/13.211.32.245.nip.io" ]; then
+    echo "🎉 Let's Encrypt certificate obtained successfully for 13.211.32.245.nip.io!"
+    sudo ln -sf "/etc/letsencrypt/live/13.211.32.245.nip.io/fullchain.pem" /etc/ssl/civora/fullchain.pem
+    sudo ln -sf "/etc/letsencrypt/live/13.211.32.245.nip.io/privkey.pem" /etc/ssl/civora/privkey.pem
+    sudo systemctl reload nginx
+  else
+    echo "ℹ️ Note: Automated Let's Encrypt challenge did not complete."
+    echo "ℹ️ The server is currently running with standard TLS certificates for ${DOMAIN}."
+    echo "ℹ️ You can click 'Advanced' -> 'Proceed' in your browser to access immediately."
+  fi
 fi
 set -e
 
