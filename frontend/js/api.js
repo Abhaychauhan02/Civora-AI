@@ -4,17 +4,24 @@
 // local development, live health pinging & cold-start recovery
 // ==========================================================================
 
-const DEFAULT_EC2_BACKEND = "http://13.211.32.245:8000";
+const DEFAULT_EC2_BACKEND = "https://13.211.32.245.sslip.io";
 
 const Api = {
   // Retrieve the configured backend URL
   getBaseUrl() {
-    // 0. If directly browsing on the EC2 host, port 8000, or local development:
-    // ALWAYS use same-origin relative path ("") and wipe any dead Render setting
+    // 0. If directly browsing on the EC2 host, wildcard domain (sslip.io/nip.io), port 8000, or local dev:
+    // ALWAYS use same-origin relative path ("") because Nginx reverse-proxies /api to backend
     if (typeof window !== "undefined" && window.location) {
       const h = window.location.hostname || "";
       const p = window.location.port || "";
-      if (p === "8000" || h === "13.211.32.245" || h === "localhost" || h === "127.0.0.1") {
+      if (
+        h.includes("sslip.io") ||
+        h.includes("nip.io") ||
+        h === "13.211.32.245" ||
+        h === "localhost" ||
+        h === "127.0.0.1" ||
+        p === "8000"
+      ) {
         try {
           const stored = localStorage.getItem("civora_backend_url");
           if (stored && (stored.includes("onrender.com") || stored.includes("13.211.32.245"))) {
@@ -25,7 +32,7 @@ const Api = {
       }
     }
 
-    // 1. Query parameter override: ?backend=http://13.211.32.245:8000
+    // 1. Query parameter override: ?backend=https://...
     try {
       const params = new URLSearchParams(window.location.search);
       const queryBackend = params.get("backend") || params.get("api");
@@ -36,12 +43,12 @@ const Api = {
       }
     } catch (_) {}
 
-    // 2. Persisted user configuration in localStorage (auto-purge suspended Render URLs)
+    // 2. Persisted user configuration in localStorage (auto-purge suspended Render or mixed-content HTTP URLs)
     try {
       const stored = localStorage.getItem("civora_backend_url");
       if (stored && stored.trim() !== "") {
         const clean = stored.trim().replace(/\/+$/, "");
-        if (clean.includes("onrender.com")) {
+        if (clean.includes("onrender.com") || (window.location.protocol === "https:" && clean.startsWith("http://"))) {
           localStorage.removeItem("civora_backend_url");
         } else {
           return clean;
@@ -54,12 +61,11 @@ const Api = {
       return window.__CIVORA_BACKEND_URL__.trim().replace(/\/+$/, "");
     }
 
-    // 4. If running on AWS Amplify or any external static hosting:
-    // Default directly to AWS EC2 backend
+    // 4. If running on external static hosting (e.g. AWS Amplify / Vercel):
     if (typeof window !== "undefined" && window.location.hostname) {
       const h = window.location.hostname;
-      if (h !== "localhost" && h !== "127.0.0.1" && h !== "13.211.32.245") {
-        return DEFAULT_EC2_BACKEND;
+      if (!h.includes("sslip.io") && !h.includes("nip.io") && h !== "localhost" && h !== "127.0.0.1" && h !== "13.211.32.245") {
+        return window.location.protocol === "https:" ? "https://13.211.32.245.sslip.io" : "http://13.211.32.245:8000";
       }
     }
 
