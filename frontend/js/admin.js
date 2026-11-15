@@ -811,9 +811,12 @@ const Admin = {
         }
       }
 
-      // Authenticity
-      const authScore = rep.severity_score !== undefined ? (rep.severity_score > 1 ? (rep.severity_score/100).toFixed(2) : rep.severity_score.toFixed(2)) : "0.94";
-      document.getElementById("rep-ai-auth-score").textContent = authScore;
+      // Authenticity Score & Explanation
+      const rawAuth = (rep.authenticity_score !== undefined && rep.authenticity_score !== null)
+        ? rep.authenticity_score
+        : (rep.authenticity ? rep.authenticity.real_probability : 0.94);
+      const authProb = Number(rawAuth);
+      document.getElementById("rep-ai-auth-score").textContent = isNaN(authProb) ? "0.94" : authProb.toFixed(2);
       document.getElementById("rep-ai-auth-expl").textContent = this.getAuthExplanation(rep.authenticity_status);
 
       // Bounding box list
@@ -908,7 +911,7 @@ const Admin = {
     if (!bboxesList) return;
 
     if (!detections || detections.length === 0) {
-      bboxesList.innerHTML = `<div class="text-slate-400 italic">No AI bounding boxes detected for this submission.</div>`;
+      bboxesList.innerHTML = `<div class="text-slate-400 italic">No defects confidently localized by the AI model. Manual review required.</div>`;
       return;
     }
 

@@ -79,9 +79,11 @@ async def prescan_report_image(
 
     return {
         "status": detection_status,
-        "model_version": ai_result.get("model_version", "civora-yolo-v1-improved"),
+        "model_version": ai_result.get("model_version", "civora-yolo-v1-ensemble"),
         "image_width": ai_result.get("image_width", 640),
         "image_height": ai_result.get("image_height", 640),
+        "detection_count": len(detections),
+        "inference_time_ms": ai_result.get("inference_time_ms", 0.0),
         "detections": detections,
         "authenticity": authenticity,
         "suggested_category": suggested_category,
@@ -149,6 +151,7 @@ async def submit_report(
     authenticity = ai_result.get("authenticity", {})
     severity_score = int(ai_result.get("severity_score", 30))
     auth_status = authenticity.get("status", "LIKELY_AUTHENTIC")
+    auth_score = float(authenticity.get("real_probability", 0.94))
 
     # Determine primary category and confidence from real AI detection
     if detections:
@@ -251,13 +254,13 @@ async def submit_report(
             INSERT INTO reports (
                 id, issue_id, user_id, image_url, latitude, longitude, address,
                 description, citizen_category, ai_category, ai_confidence, ai_detections_json,
-                authenticity_status, severity_score, location_source, location_accuracy
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                authenticity_status, authenticity_score, severity_score, location_source, location_accuracy
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             report_id, issue_id, user_id, image_web_url, latitude, longitude,
             address or f"Lat {latitude:.4f}, Lon {longitude:.4f}",
             description, category, ai_detected_category, primary_confidence,
-            json.dumps(detections), auth_status, severity_score, location_source or "MANUAL_PIN",
+            json.dumps(detections), auth_status, auth_score, severity_score, location_source or "MANUAL_PIN",
             location_accuracy
         ))
 

@@ -95,6 +95,7 @@ def init_db():
             ai_confidence REAL,
             ai_detections_json TEXT, -- Serialized bounding boxes and classes
             authenticity_status TEXT DEFAULT 'LIKELY_AUTHENTIC',
+            authenticity_score REAL DEFAULT 0.94,
             severity_score INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
@@ -121,6 +122,8 @@ def init_db():
         report_cols = [c["name"] for c in cursor.fetchall()]
         if "citizen_category" not in report_cols:
             cursor.execute("ALTER TABLE reports ADD COLUMN citizen_category TEXT")
+        if "authenticity_score" not in report_cols:
+            cursor.execute("ALTER TABLE reports ADD COLUMN authenticity_score REAL DEFAULT 0.94")
         if "location_source" not in report_cols:
             cursor.execute("ALTER TABLE reports ADD COLUMN location_source TEXT")
         if "location_accuracy" not in report_cols:

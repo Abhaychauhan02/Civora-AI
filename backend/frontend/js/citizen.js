@@ -688,7 +688,7 @@ const Citizen = {
     if (!detections || detections.length === 0) {
       container.innerHTML = `
         <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 flex items-center justify-between w-full">
-          <span>No defect detected with high confidence. Proceeding to standard citizen routing.</span>
+          <span>No defects confidently localized by the AI model. Manual review required.</span>
           <span class="text-[10px] font-mono text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-bold">Manual Triage</span>
         </div>
       `;

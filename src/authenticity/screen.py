@@ -29,12 +29,16 @@ logger = logging.getLogger(__name__)
 _CLASSIFIER = None
 _MODEL_NAME = "dima806/ai_vs_real_image_detection"
 
-# Calibrated validation thresholds (derived on validation split, never on test)
-# Synthetic Probability cutoffs:
-THRESHOLD_AUTHENTIC = 0.65       # Below this fake_p -> LIKELY_AUTHENTIC
-THRESHOLD_SUSPICIOUS = 0.95      # At or above this fake_p -> SUSPICIOUS
-THRESHOLD_REVIEW_REQUIRED = 0.85 # Between 0.85 and 0.95 -> REVIEW_REQUIRED
-# Between 0.65 and 0.85 -> UNCERTAIN
+# Calibrated authenticity thresholds based on real_probability
+THRESHOLD_AUTHENTIC_REAL = 0.70       # At or above this real_prob -> LIKELY_AUTHENTIC
+THRESHOLD_UNCERTAIN_REAL = 0.45       # Between 0.45 and 0.70 real_prob -> UNCERTAIN
+THRESHOLD_REVIEW_REAL = 0.20          # Between 0.20 and 0.45 real_prob -> REVIEW_REQUIRED
+# Below 0.20 real_prob -> SUSPICIOUS
+
+# Backward compatibility aliases
+THRESHOLD_AUTHENTIC = 0.30            # At or below this fake_p -> LIKELY_AUTHENTIC
+THRESHOLD_REVIEW_REQUIRED = 0.55      # Above this fake_p -> REVIEW_REQUIRED
+THRESHOLD_SUSPICIOUS = 0.80           # At or above this fake_p -> SUSPICIOUS
 
 
 def _get_classifier():
@@ -150,31 +154,31 @@ def screen_authenticity(image_path: str) -> Dict[str, Any]:
     # 1. Authentic Hardware Camera Metadata Adjustment
     has_genuine_cam = bool(camera_meta["camera_make"] or camera_meta["camera_model"])
 
-    if has_genuine_cam and fake_prob < THRESHOLD_SUSPICIOUS:
+    if has_genuine_cam and fake_prob < 0.60:
         status = "LIKELY_AUTHENTIC"
         review_required = False
         confidence_tier = "HIGH"
-        explanation = f"Genuine hardware EXIF detected ({camera_meta.get('camera_make', '')} {camera_meta.get('camera_model', '')}). Real-world capture confirmed."
-    elif fake_prob >= THRESHOLD_SUSPICIOUS:
-        status = "SUSPICIOUS"
-        review_required = True
-        confidence_tier = "HIGH"
-        explanation = f"High synthetic probability ({fake_prob*100:.1f}%). Flagged for administrative verification."
-    elif fake_prob >= THRESHOLD_REVIEW_REQUIRED:
-        status = "REVIEW_REQUIRED"
-        review_required = True
-        confidence_tier = "MEDIUM"
-        explanation = f"Elevated synthetic indicators ({fake_prob*100:.1f}%). Recommended for manual verification."
-    elif fake_prob >= THRESHOLD_AUTHENTIC:
+        explanation = f"Genuine hardware EXIF detected ({camera_meta.get('camera_make', '')} {camera_meta.get('camera_model', '')}). Optical device capture confirmed."
+    elif real_prob >= THRESHOLD_AUTHENTIC_REAL:
+        status = "LIKELY_AUTHENTIC"
+        review_required = False
+        confidence_tier = "HIGH" if real_prob >= 0.85 else "MEDIUM"
+        explanation = f"Image exhibits natural photographic characteristics ({real_prob*100:.1f}% authentic)."
+    elif real_prob >= THRESHOLD_UNCERTAIN_REAL:
         status = "UNCERTAIN"
         review_required = True
         confidence_tier = "LOW"
-        explanation = f"Borderline model confidence ({fake_prob*100:.1f}% synthetic). Accepted for resolution, marked uncertain."
+        explanation = f"Borderline model confidence ({real_prob*100:.1f}% authentic). Accepted for resolution, marked uncertain."
+    elif real_prob >= THRESHOLD_REVIEW_REAL:
+        status = "REVIEW_REQUIRED"
+        review_required = True
+        confidence_tier = "MEDIUM"
+        explanation = f"Elevated synthetic indicators ({fake_prob*100:.1f}% synthetic). Recommended for manual verification."
     else:
-        status = "LIKELY_AUTHENTIC"
-        review_required = False
-        confidence_tier = "HIGH" if real_prob >= 0.75 else "MEDIUM"
-        explanation = f"Image exhibits natural photographic characteristics ({real_prob*100:.1f}% authentic)."
+        status = "SUSPICIOUS"
+        review_required = True
+        confidence_tier = "HIGH"
+        explanation = f"High synthetic probability ({fake_prob*100:.1f}% synthetic). Flagged for administrative verification."
 
     return {
         "real_probability": round(real_prob, 2),
